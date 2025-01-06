@@ -1,0 +1,15 @@
+body {
+    @apply bg-white text-gray-800; /* Светлая тема по умолчанию */
+}
+
+html.dark body {
+    @apply bg-dark-bg text-dark-text; /* Темная тема */
+}
+
+.dark .border-gray-200 {
+    @apply border-dark-border; /* Бордеры */
+}
+
+.dark .hover\:bg-gray-200:hover {
+    @apply bg-dark-hover; /* Hover */
+}
