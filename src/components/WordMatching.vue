@@ -175,6 +175,8 @@ export default {
         const left = this.localWords[this.selected.left];
         const right = this.shuffledMatches[this.selected.right];
 
+        // Value-based matching: correct when values match, regardless of original row position.
+        // Multiple words can share the same correct match (e.g. gender/category); cross-row picks are valid.
         if (left.match === right.match) {
           left.matched = true;
           right.matched = true;
