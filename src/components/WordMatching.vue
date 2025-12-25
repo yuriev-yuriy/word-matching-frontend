@@ -211,6 +211,10 @@ export default {
       type: Boolean,
       default: false, // Indicates if the list is the sample list
     },
+    demoSheets: {
+      type: Array,
+      default: () => [],
+    },
   },
   data() {
     return {
@@ -360,18 +364,39 @@ export default {
     },
     async downloadSampleFile() {
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Sample");
+      const sheets = this.demoSheets.length
+        ? this.demoSheets
+        : [
+            {
+              name: "Sample",
+              rows: [
+                { word: "bear", match: "https://img.freepik.com/premium-vector/cartoon-bear-sitting-character-illustration-isolated-white-background_338371-1217.jpg" },
+                { word: "hello", match: "bonjour", rule: "add rule: French greeting (column is optional)" },
+                { word: "rm filename.txt", match: "delete file", rule: "command to remove a file in Unix-based systems (filename.txt is the file to be deleted)" },
+                { word: "cat", match: "gato" },
+              ],
+            },
+            {
+              name: "Anagrams",
+              rows: [
+                { word: "dbare", match: "bread", rule: "anagram" },
+                { word: "leapp", match: "apple", rule: "anagram" },
+                { word: "racel", match: "clear", rule: "anagram" },
+                { word: "elstni", match: "listen", rule: "anagram" },
+                { word: "aertch", match: "teacher", rule: "anagram" },
+                { word: "tca", match: "cat", rule: "anagram" },
+                { word: "god", match: "dog", rule: "anagram" },
+                { word: "stop", match: "pots", rule: "anagram" },
+                { word: "stare", match: "tears", rule: "anagram" },
+                { word: "cihna", match: "chain", rule: "anagram" },
+              ],
+            },
+          ];
 
-      // Sample data
-      const sampleData = [
-        { word: "bear", match: "https://img.freepik.com/premium-vector/cartoon-bear-sitting-character-illustration-isolated-white-background_338371-1217.jpg" },
-        { word: "hello", match: "bonjour", rule: 'add rule: French greeting (column is optional)' },
-        { word: "rm filename.txt", match: "delete file", rule: 'command to remove a file in Unix-based systems (filename.txt is the file to be deleted)' },
-        { word: "cat", match: "gato" },
-      ];
-
-      // Add rows without headers
-      sampleData.forEach(({ word, match, rule }) => worksheet.addRow([word, match, rule || ""]));
+      sheets.forEach((sheet) => {
+        const worksheet = workbook.addWorksheet(sheet.name);
+        sheet.rows.forEach(({ word, match, rule }) => worksheet.addRow([word, match, rule || ""]));
+      });
 
       // Save the file
       const buffer = await workbook.xlsx.writeBuffer();

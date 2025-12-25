@@ -56,7 +56,7 @@
       </div>
     </div>
     <div
-      v-if="sheetNames.length > 1"
+      v-if="showSheetTabs"
       class="w-full max-w-xl flex items-center gap-2 my-4"
     >
       <button
@@ -74,14 +74,14 @@
         @scroll="updateTabsScrollState"
       >
         <button
-          v-for="(sheetName, index) in sheetNames"
+          v-for="(sheetName, index) in displaySheetNames"
           :key="sheetName"
           type="button"
           class="inline-flex items-center px-3 py-1 mx-1 rounded-full border text-sm transition"
-          :class="index === activeSheetIndex
+          :class="index === activeTabIndex
             ? 'bg-blue-500 text-white border-blue-500'
             : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'"
-          @click="selectSheet(index)"
+          @click="workbookRef ? selectSheet(index) : selectDemoSheet(index)"
         >
           {{ sheetName }}
         </button>
@@ -108,6 +108,20 @@ const MAX_ROWS = 50;
 
 export default {
   name: "FileUpload",
+  props: {
+    demoSheets: {
+      type: Array,
+      default: () => [],
+    },
+    demoActiveIndex: {
+      type: Number,
+      default: 0,
+    },
+    isDemoMode: {
+      type: Boolean,
+      default: true,
+    },
+  },
   data() {
     return {
       workbookRef: null,
@@ -134,6 +148,32 @@ export default {
   beforeUnmount() {
     window.removeEventListener("resize", this.updateTabsScrollState);
     window.removeEventListener("keydown", this.handleKeydown);
+  },
+  watch: {
+    demoSheets: {
+      immediate: true,
+      handler() {
+        nextTick(() => this.updateTabsScrollState());
+      },
+    },
+    demoActiveIndex() {
+      nextTick(() => this.updateTabsScrollState());
+    },
+  },
+  computed: {
+    displaySheetNames() {
+      if (this.workbookRef) return this.sheetNames;
+      if (this.isDemoMode && Array.isArray(this.demoSheets)) {
+        return this.demoSheets.map((sheet) => sheet.name);
+      }
+      return [];
+    },
+    activeTabIndex() {
+      return this.workbookRef ? this.activeSheetIndex : this.demoActiveIndex;
+    },
+    showSheetTabs() {
+      return this.displaySheetNames.length > 1;
+    },
   },
   methods: {
     async handleFileUpload(event) {
@@ -271,6 +311,11 @@ export default {
 
       await nextTick();
       this.updateTabsScrollState();
+    },
+    selectDemoSheet(index) {
+      if (this.workbookRef || !this.isDemoMode) return;
+      if (index === this.demoActiveIndex) return;
+      this.$emit("demoSheetSelected", index);
     },
     parseWorksheet(worksheet) {
       const jsonData = [];

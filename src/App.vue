@@ -29,7 +29,13 @@
     >
       Open Menu
     </button>
-    <FileUpload @fileProcessed="handleFileProcessed" />
+    <FileUpload
+      :demoSheets="sampleSheets"
+      :demoActiveIndex="activeDemoSheetIndex"
+      :isDemoMode="isDemoMode"
+      @demoSheetSelected="handleDemoSheetSelected"
+      @fileProcessed="handleFileProcessed"
+    />
     <WordMatching
       v-if="words.length"
       :words="words"
@@ -40,6 +46,7 @@
       :csvDelimiter="csvDelimiter"
       :theme="theme"
       :isSampleList="isSampleList"
+      :demoSheets="sampleSheets"
     />
     <AboutText v-if="isSampleList" />
   </div>
@@ -74,31 +81,53 @@ export default {
       isSidebarOpen: false, // Tracks whether the sidebar is open
       files: [], // List of files from the database
       isLoggedIn: false, // Placeholder for auth state
-      sampleWords: [
-        { word: "bear", match: "https://img.freepik.com/premium-vector/cartoon-bear-sitting-character-illustration-isolated-white-background_338371-1217.jpg" },
-        { word: "hello", match: "bonjour", rule: "add rule: French greeting (column is optional)" },
-        // Math Practice Example
-        { word: "5 + 3", match: "8" },
-        { word: "7 x 6", match: "42" },
+      isDemoMode: true,
+      activeDemoSheetIndex: 0,
+      sampleSheets: [
+        {
+          name: "Sample",
+          rows: [
+            { word: "bear", match: "https://img.freepik.com/premium-vector/cartoon-bear-sitting-character-illustration-isolated-white-background_338371-1217.jpg" },
+            { word: "hello", match: "bonjour", rule: "add rule: French greeting (column is optional)" },
+            // Math Practice Example
+            { word: "5 + 3", match: "8" },
+            { word: "7 x 6", match: "42" },
 
-        // Definition Learning Example
-        { word: "Radius of a circle", match: "A line segment from the center of the circle to its edge" },
+            // Definition Learning Example
+            { word: "Radius of a circle", match: "A line segment from the center of the circle to its edge" },
 
-        // Memorizing Commands Example
-        { word: "rm filename.txt", match: "Delete file using Linux terminal", rule: "command to remove a file in Unix-based systems (filename.txt is the file to be deleted)" },
+            // Memorizing Commands Example
+            { word: "rm filename.txt", match: "Delete file using Linux terminal", rule: "command to remove a file in Unix-based systems (filename.txt is the file to be deleted)" },
 
-        // Exam Preparation Example
-        { word: "E = mc²", match: "Energy-Mass Equivalence" },
+            // Exam Preparation Example
+            { word: "E = mc²", match: "Energy-Mass Equivalence" },
 
-        // Geography Example
-        { word: "Capital of Canada", match: "Ottawa" },
-        { word: "Eiffel Tower", match: "Paris" },
+            // Geography Example
+            { word: "Capital of Canada", match: "Ottawa" },
+            { word: "Eiffel Tower", match: "Paris" },
 
-        // Logical Thinking Example
-        { word: "What has keys but can't open locks?", match: "Keyboard" },
+            // Logical Thinking Example
+            { word: "What has keys but can't open locks?", match: "Keyboard" },
 
-        // IT and Networking Example
-        { word: "HTTP 404", match: "Page Not Found Error" }
+            // IT and Networking Example
+            { word: "HTTP 404", match: "Page Not Found Error" }
+          ],
+        },
+        {
+          name: "Anagrams",
+          rows: [
+            { word: "dbare", match: "bread", rule: "anagram" },
+            { word: "leapp", match: "apple", rule: "anagram" },
+            { word: "racel", match: "clear", rule: "anagram" },
+            { word: "elstni", match: "listen", rule: "anagram" },
+            { word: "aertch", match: "teacher", rule: "anagram" },
+            { word: "tca", match: "cat", rule: "anagram" },
+            { word: "god", match: "dog", rule: "anagram" },
+            { word: "stop", match: "pots", rule: "anagram" },
+            { word: "stare", match: "tears", rule: "anagram" },
+            { word: "cihna", match: "chain", rule: "anagram" }
+          ],
+        },
       ],
     };
   },
@@ -118,11 +147,26 @@ export default {
       this.fileType = fileType || "";
       this.csvDelimiter = csvDelimiter || ",";
       this.isSampleList = false; // Set to false because the user uploaded a custom file
+      this.isDemoMode = false;
+    },
+    handleDemoSheetSelected(index) {
+      this.activeDemoSheetIndex = index;
+      const sheet = this.sampleSheets[index];
+      if (!sheet) return;
+      this.words = sheet.rows;
+      this.fileName = sheet.name;
+      this.isSampleList = true;
+      this.fileId = "";
+      this.sheetId = "";
+      this.fileType = "";
+      this.csvDelimiter = ",";
+      this.isDemoMode = true;
     },
   },
   created() {
     // Initialize with the sample list
-    this.words = this.sampleWords;
+    this.words = this.sampleSheets[0]?.rows || [];
+    this.fileName = this.sampleSheets[0]?.name || "";
 
     // Simulate fetching files from the database
     this.files = [
