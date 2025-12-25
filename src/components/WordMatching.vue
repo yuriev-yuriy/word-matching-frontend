@@ -291,6 +291,18 @@ export default {
     shuffleArray(array) {
       return array.sort(() => Math.random() - 0.5);
     },
+    shuffleRightWithGuard(leftItems, rightItems) {
+      let attempts = 0;
+      let shuffled = this.shuffleArray([...rightItems]);
+      while (
+        attempts < 2 &&
+        shuffled.every((item, index) => item.match === leftItems[index]?.match)
+      ) {
+        shuffled = this.shuffleArray([...rightItems]);
+        attempts += 1;
+      }
+      return shuffled;
+    },
     selectWord(index, column) {
       if (column === "left") {
         this.selected.left = this.selected.left === index ? null : index;
@@ -449,17 +461,20 @@ export default {
       this.incorrectPairs = [];
 
       if (Array.isArray(newWords) && newWords.length > 0) {
-        this.localWords = newWords.map(({ word, match, rule }) => ({
+        const leftItems = this.shuffleArray(
+          newWords.map(({ word, match, rule }) => ({
           word,
           match,
           rule,
           matched: false,
           incorrect: false,
           selectedMatch: "",
-        }));
-        this.shuffledMatches = this.shuffleArray(
-          newWords.map(({ match }) => ({ match, matched: false }))
+          }))
         );
+        const rightItems = newWords.map(({ match }) => ({ match, matched: false }));
+
+        this.localWords = leftItems;
+        this.shuffledMatches = this.shuffleRightWithGuard(leftItems, rightItems);
       }
     },
     getProgressKey() {
