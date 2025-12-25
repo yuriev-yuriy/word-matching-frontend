@@ -1,12 +1,14 @@
 <template>
   <div class="flex flex-col items-center space-y-6 mt-12">
     <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Upload your Excel file</h2>
-    <input
-      type="file"
-      accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain,application/csv,application/vnd.oasis.opendocument.spreadsheet"
-      @change="handleFileUpload"
-      class="border p-2 rounded dark:bg-gray-800 dark:text-white"
-    />
+    <div class="w-full max-w-xl px-4 sm:px-0 self-stretch">
+      <input
+        type="file"
+        accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain,application/csv,application/vnd.oasis.opendocument.spreadsheet"
+        @change="handleFileUpload"
+        class="w-full border p-2 rounded dark:bg-gray-800 dark:text-white"
+      />
+    </div>
     <div
       v-if="warnings.length"
       class="w-full max-w-xl space-y-2"

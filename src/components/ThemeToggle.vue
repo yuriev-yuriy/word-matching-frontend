@@ -1,11 +1,11 @@
-<template>
+  <template>
     <button
       @click="toggleTheme"
-      class="absolute top-4 right-4 px-4 py-2 rounded-lg text-sm transition duration-300"
-      :class="{
-        'bg-gray-800 text-white hover:bg-gray-700': isDark,
-        'bg-gray-200 text-gray-800 hover:bg-gray-300': !isDark,
-      }"
+      class="px-4 py-2 rounded-lg text-sm transition duration-300"
+      :class="[
+        inline ? '' : 'absolute top-4 right-4',
+        isDark ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300',
+      ]"
     >
       {{ isDark ? 'Light' : 'Dark' }}
     </button>
@@ -14,6 +14,12 @@
   <script>
   export default {
     name: 'ThemeToggle',
+    props: {
+      inline: {
+        type: Boolean,
+        default: false,
+      },
+    },
     data() {
         return {
             isDark: false,

@@ -1,6 +1,18 @@
 <template>
   <div id="app" :class="isSampleList ? '' : 'min-h-screen'">
-    <ThemeToggle />
+    <div class="flex items-center justify-end gap-2 px-4 pt-4 md:hidden">
+      <ThemeToggle :inline="true" />
+      <button
+        v-if="!isSidebarOpen"
+        type="button"
+        class="px-3 py-2 rounded-lg text-sm bg-gray-200 text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        @click="toggleSidebar"
+        aria-label="Open menu"
+      >
+        ☰
+      </button>
+    </div>
+    <ThemeToggle class="hidden md:inline-flex" />
     <!-- Sidebar Menu -->
     <SidebarMenu
       :isOpen="isSidebarOpen"
@@ -12,7 +24,7 @@
     <!-- Open Sidebar Button -->
     <button
       @click="toggleSidebar"
-      class="fixed top-4 left-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50"
+      class="hidden md:inline-flex fixed top-4 left-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50"
     >
       Open Menu
     </button>
@@ -62,7 +74,7 @@ export default {
       files: [], // List of files from the database
       sampleWords: [
         { word: "bear", match: "https://img.freepik.com/premium-vector/cartoon-bear-sitting-character-illustration-isolated-white-background_338371-1217.jpg" },
-        { word: "hello", match: "bonjour" },
+        { word: "hello", match: "bonjour", rule: "add rule: French greeting (column is optional)" },
         // Math Practice Example
         { word: "5 + 3", match: "8" },
         { word: "7 x 6", match: "42" },
@@ -71,7 +83,7 @@ export default {
         { word: "Radius of a circle", match: "A line segment from the center of the circle to its edge" },
 
         // Memorizing Commands Example
-        { word: "rm filename.txt", match: "Delete file using Linux terminal" },
+        { word: "rm filename.txt", match: "Delete file using Linux terminal", rule: "command to remove a file in Unix-based systems (filename.txt is the file to be deleted)" },
 
         // Exam Preparation Example
         { word: "E = mc²", match: "Energy-Mass Equivalence" },
