@@ -173,6 +173,7 @@
 
 <script>
 import ExcelJS from "exceljs";
+import { rule } from "postcss";
 import { nextTick } from "vue";
 
 export default {
@@ -364,12 +365,13 @@ export default {
       // Sample data
       const sampleData = [
         { word: "bear", match: "https://img.freepik.com/premium-vector/cartoon-bear-sitting-character-illustration-isolated-white-background_338371-1217.jpg" },
-        { word: "hello", match: "bonjour" },
-        { word: "rm filename.txt", match: "delete file" },
+        { word: "hello", match: "bonjour", rule: 'add rule: French greeting (column is optional)' },
+        { word: "rm filename.txt", match: "delete file", rule: 'command to remove a file in Unix-based systems (filename.txt is the file to be deleted)' },
+        { word: "cat", match: "gato" },
       ];
 
       // Add rows without headers
-      sampleData.forEach(({ word, match }) => worksheet.addRow([word, match]));
+      sampleData.forEach(({ word, match, rule }) => worksheet.addRow([word, match, rule || ""]));
 
       // Save the file
       const buffer = await workbook.xlsx.writeBuffer();
