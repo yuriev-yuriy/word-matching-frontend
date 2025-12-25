@@ -21,6 +21,10 @@
       v-if="words.length"
       :words="words"
       :fileName="fileName"
+      :fileId="fileId"
+      :sheetId="sheetId"
+      :fileType="fileType"
+      :csvDelimiter="csvDelimiter"
       :theme="theme"
       :isSampleList="isSampleList"
     />
@@ -48,6 +52,10 @@ export default {
     return {
       words: [], // Current list of words
       fileName: "", // Current file name
+      fileId: "", // Current file id for progress persistence
+      sheetId: "", // Current sheet id for progress persistence
+      fileType: "", // Current file type for error export
+      csvDelimiter: ",", // CSV delimiter for error export
       theme: "light", // Current theme
       isSampleList: true, // Tracks whether the current list is the sample list
       isSidebarOpen: false, // Tracks whether the sidebar is open
@@ -88,9 +96,13 @@ export default {
       console.log("Loaded file data:", fileData);
       // Логика для обработки загруженного файла
     },
-    handleFileProcessed({ words, fileName }) {
+    handleFileProcessed({ words, fileName, fileId, sheetId, fileType, csvDelimiter }) {
       this.words = words;
       this.fileName = fileName;
+      this.fileId = fileId || "";
+      this.sheetId = sheetId || "";
+      this.fileType = fileType || "";
+      this.csvDelimiter = csvDelimiter || ",";
       this.isSampleList = false; // Set to false because the user uploaded a custom file
     },
   },

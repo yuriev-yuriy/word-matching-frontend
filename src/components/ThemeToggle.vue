@@ -19,15 +19,39 @@
             isDark: false,
         };
     },
+    mounted() {
+      try {
+        const storedTheme = localStorage.getItem('wm_theme');
+        if (storedTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+          this.isDark = true;
+        } else if (storedTheme === 'light') {
+          document.documentElement.classList.remove('dark');
+          this.isDark = false;
+        }
+      } catch {
+        // Ignore storage errors.
+      }
+    },
     methods: {
       toggleTheme() {
         const html = document.documentElement;
         if (html.classList.contains('dark')) {
           html.classList.remove('dark');
           this.isDark = false;
+          try {
+            localStorage.setItem('wm_theme', 'light');
+          } catch {
+            // Ignore storage errors.
+          }
         } else {
           html.classList.add('dark');
           this.isDark = true;
+          try {
+            localStorage.setItem('wm_theme', 'dark');
+          } catch {
+            // Ignore storage errors.
+          }
         }
       },
     },
