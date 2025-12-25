@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col items-center space-y-6 mt-12">
     <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Upload your Excel file</h2>
-    <div class="w-full max-w-xl px-4 sm:px-0 self-stretch">
+    <div class="w-full max-w-xl px-4 sm:px-0 mx-auto">
       <input
         type="file"
         accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain,application/csv,application/vnd.oasis.opendocument.spreadsheet"
