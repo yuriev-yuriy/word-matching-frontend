@@ -17,6 +17,7 @@
     <SidebarMenu
       :isOpen="isSidebarOpen"
       :files="files"
+      :isLoggedIn="isLoggedIn"
       @close="toggleSidebar"
       @fileLoaded="handleFileLoaded"
     />
@@ -72,6 +73,7 @@ export default {
       isSampleList: true, // Tracks whether the current list is the sample list
       isSidebarOpen: false, // Tracks whether the sidebar is open
       files: [], // List of files from the database
+      isLoggedIn: false, // Placeholder for auth state
       sampleWords: [
         { word: "bear", match: "https://img.freepik.com/premium-vector/cartoon-bear-sitting-character-illustration-isolated-white-background_338371-1217.jpg" },
         { word: "hello", match: "bonjour", rule: "add rule: French greeting (column is optional)" },
