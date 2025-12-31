@@ -61,7 +61,7 @@
 
     <main class="relative mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
       <div class="grid gap-6 lg:grid-cols-12">
-        <section class="space-y-6 lg:col-span-8">
+        <section class="space-y-6" :class="isSampleList ? 'lg:col-span-8' : 'lg:col-span-12'">
           <!-- <UiCard>
             <div class="space-y-4">
               <h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -104,12 +104,12 @@
               :demoSheets="sampleSheets"
             />
           </UiCard>
-          <UiCard v-if="isSampleList" class="lg:hidden">
+          <UiCard class="lg:hidden">
             <AboutText />
           </UiCard>
         </section>
 
-        <aside class="space-y-6 lg:col-span-4">
+        <aside class="space-y-6 lg:col-span-4 md:hidden lg:block">
           <UiCard v-if="isSampleList">
             <AboutText />
           </UiCard>
