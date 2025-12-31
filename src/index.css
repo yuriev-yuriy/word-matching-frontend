@@ -13,3 +13,29 @@ html.dark body {
 .dark .hover\:bg-gray-200:hover {
     @apply bg-dark-hover; /* Hover */
 }
+
+/* Smooth theme transitions (client-side only) */
+html,
+body,
+#app {
+    transition: background-color 700ms ease, color 700ms ease;
+}
+
+* {
+    transition:
+        background-color 700ms ease,
+        color 700ms ease,
+        border-color 700ms ease,
+        box-shadow 700ms ease,
+        fill 700ms ease,
+        stroke 700ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html,
+    body,
+    #app,
+    * {
+        transition: none !important;
+    }
+}

@@ -1,18 +1,47 @@
 <template>
-  <div id="app" :class="isSampleList ? '' : 'min-h-screen'">
-    <div class="flex items-center justify-end gap-2 px-4 pt-4 md:hidden">
-      <ThemeToggle :inline="true" />
-      <button
-        v-if="!isSidebarOpen"
-        type="button"
-        class="px-3 py-2 rounded-lg text-sm bg-gray-200 text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
-        @click="toggleSidebar"
-        aria-label="Open menu"
-      >
-        ☰
-      </button>
+  <div
+    id="app"
+    :class="[
+      'relative min-h-screen bg-gradient-to-b from-zinc-50 via-white to-indigo-50 text-zinc-900 dark:from-zinc-950 dark:via-zinc-950 dark:to-indigo-950 dark:text-zinc-100',
+      isSampleList ? '' : 'pb-10',
+    ]"
+  >
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-64">
+      <div class="mx-auto h-64 w-64 -translate-y-10 rounded-full bg-indigo-400/30 blur-3xl dark:bg-indigo-500/20" />
     </div>
-    <ThemeToggle class="hidden md:inline-flex" />
+
+    <header class="sticky top-0 z-50 border-b border-zinc-200/70 bg-white/70 backdrop-blur dark:border-zinc-800/70 dark:bg-zinc-950/60">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-sm font-semibold text-white shadow-sm">
+            CM
+          </div>
+          <div>
+            <p class="text-lg font-semibold tracking-tight">ClickToMemo</p>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">Smart matching practice</p>
+          </div>
+        </div>
+        <h1 class="text-4xl font-semibold tracking-tight sm:text-2xl hidden md:block">
+          Learn faster with smart matching
+        </h1>
+        <div class="flex items-center gap-3">
+          <UiButton variant="secondary" class="hidden sm:inline-flex">
+            Try demo
+          </UiButton>
+          <ThemeToggle :inline="true" />
+          <button
+            v-if="!isSidebarOpen"
+            type="button"
+            class="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white/70 px-3 py-2 text-sm text-zinc-700 shadow-sm hover:bg-white dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200 md:hidden"
+            @click="toggleSidebar"
+            aria-label="Open menu"
+          >
+            ☰
+          </button>
+        </div>
+      </div>
+    </header>
+
     <!-- Sidebar Menu -->
     <SidebarMenu
       :isOpen="isSidebarOpen"
@@ -25,30 +54,68 @@
     <!-- Open Sidebar Button -->
     <button
       @click="toggleSidebar"
-      class="hidden md:inline-flex fixed top-4 left-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50"
+      class="hidden md:inline-flex fixed top-24 left-6 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-indigo-400 z-40"
     >
       Open Menu
     </button>
-    <FileUpload
-      :demoSheets="sampleSheets"
-      :demoActiveIndex="activeDemoSheetIndex"
-      :isDemoMode="isDemoMode"
-      @demoSheetSelected="handleDemoSheetSelected"
-      @fileProcessed="handleFileProcessed"
-    />
-    <WordMatching
-      v-if="words.length"
-      :words="words"
-      :fileName="fileName"
-      :fileId="fileId"
-      :sheetId="sheetId"
-      :fileType="fileType"
-      :csvDelimiter="csvDelimiter"
-      :theme="theme"
-      :isSampleList="isSampleList"
-      :demoSheets="sampleSheets"
-    />
-    <AboutText v-if="isSampleList" />
+
+    <main class="relative mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+      <div class="grid gap-6 lg:grid-cols-12">
+        <section class="space-y-6 lg:col-span-8">
+          <!-- <UiCard>
+            <div class="space-y-4">
+              <h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">
+                Learn faster with smart matching
+              </h1>
+              <p class="text-base leading-7 text-zinc-600 dark:text-zinc-300">
+                Upload your words, definitions, or image prompts and practice with fast matching rounds designed to reinforce memory.
+              </p>
+              <div class="flex flex-wrap items-center gap-3">
+                <UiButton variant="primary">Start practicing</UiButton>
+                <UiButton variant="secondary">Explore demo sheets</UiButton>
+              </div>
+              <div class="mt-4 flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                <span class="rounded-full border border-zinc-200/70 bg-white/60 px-3 py-1 dark:border-zinc-800/70 dark:bg-zinc-900/50">Trusted by learners</span>
+                <span class="rounded-full border border-zinc-200/70 bg-white/60 px-3 py-1 dark:border-zinc-800/70 dark:bg-zinc-900/50">Fast recall</span>
+                <span class="rounded-full border border-zinc-200/70 bg-white/60 px-3 py-1 dark:border-zinc-800/70 dark:bg-zinc-900/50">Spaced repetition</span>
+              </div>
+            </div>
+          </UiCard> -->
+
+          <UiCard>
+            <FileUpload
+              :demoSheets="sampleSheets"
+              :demoActiveIndex="activeDemoSheetIndex"
+              @demoSheetSelected="handleDemoSheetSelected"
+              @fileProcessed="handleFileProcessed"
+            />
+          </UiCard>
+
+          <UiCard v-if="words.length">
+            <WordMatching
+              :words="words"
+              :fileName="fileName"
+              :fileId="fileId"
+              :sheetId="sheetId"
+              :fileType="fileType"
+              :csvDelimiter="csvDelimiter"
+              :theme="theme"
+              :isSampleList="isSampleList"
+              :demoSheets="sampleSheets"
+            />
+          </UiCard>
+          <UiCard v-if="isSampleList" class="lg:hidden">
+            <AboutText />
+          </UiCard>
+        </section>
+
+        <aside class="space-y-6 lg:col-span-4">
+          <UiCard v-if="isSampleList">
+            <AboutText />
+          </UiCard>
+        </aside>
+      </div>
+    </main>
   </div>
 </template>
 
@@ -58,6 +125,8 @@ import SidebarMenu from "./components/SidebarMenu.vue";
 import FileUpload from "./components/FileUpload.vue";
 import WordMatching from "./components/WordMatching.vue";
 import AboutText from "./components/AboutText.vue";
+import UiCard from "./components/ui/Card.vue";
+import UiButton from "./components/ui/Button.vue";
 
 export default {
   name: "App",
@@ -67,6 +136,8 @@ export default {
     FileUpload,
     WordMatching,
     AboutText,
+    UiCard,
+    UiButton,
   },
   data() {
     return {
@@ -81,7 +152,6 @@ export default {
       isSidebarOpen: false, // Tracks whether the sidebar is open
       files: [], // List of files from the database
       isLoggedIn: false, // Placeholder for auth state
-      isDemoMode: true,
       activeDemoSheetIndex: 0,
       sampleSheets: [
         {
@@ -147,7 +217,6 @@ export default {
       this.fileType = fileType || "";
       this.csvDelimiter = csvDelimiter || ",";
       this.isSampleList = false; // Set to false because the user uploaded a custom file
-      this.isDemoMode = false;
     },
     handleDemoSheetSelected(index) {
       this.activeDemoSheetIndex = index;
@@ -160,7 +229,6 @@ export default {
       this.sheetId = "";
       this.fileType = "";
       this.csvDelimiter = ",";
-      this.isDemoMode = true;
     },
   },
   created() {

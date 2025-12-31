@@ -1,68 +1,70 @@
 <template>
-  <div class="flex flex-col items-center space-y-6 mt-12">
-    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Upload your Excel file</h2>
-    <div class="w-full max-w-xl px-4 sm:px-0 mx-auto">
-      <input
-        type="file"
-        accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain,application/csv,application/vnd.oasis.opendocument.spreadsheet"
-        @change="handleFileUpload"
-        class="w-full border p-2 rounded dark:bg-gray-800 dark:text-white"
-      />
+  <div class="space-y-6">
+    <div class="space-y-2">
+      <h2 class="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">Upload your file</h2>
+      <p class="text-sm text-zinc-600 dark:text-zinc-300">
+        Drag and drop a CSV or XLSX file to start matching instantly.
+      </p>
     </div>
-    <div
-      v-if="warnings.length"
-      class="w-full max-w-xl space-y-2"
-    >
-      <div
-        v-for="warning in warnings"
-        :key="warning.id"
-        class="flex items-start justify-between gap-4 border border-yellow-300 bg-yellow-50 text-yellow-900 text-sm rounded-md px-3 py-2 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-100"
-      >
+
+    <div class="rounded-2xl border border-dashed border-zinc-200/80 bg-white/60 p-6 text-sm text-zinc-600 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-300">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="space-y-2">
+          <p class="text-base font-medium text-zinc-900 dark:text-zinc-100">Drop your file here</p>
+          <p>CSV and XLSX are supported. We import up to 10 sheets and 50 rows per sheet.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">CSV</span>
+            <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">XLSX</span>
+            <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">Rule hints optional</span>
+          </div>
+        </div>
+        <div class="w-full max-w-xs">
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain,application/csv,application/vnd.oasis.opendocument.spreadsheet"
+            @change="handleFileUpload"
+            class="w-full cursor-pointer rounded-xl border border-zinc-200/80 bg-white/80 px-3 py-2 text-sm text-zinc-700 shadow-sm file:mr-3 file:rounded-lg file:border-0 file:bg-gradient-to-r file:from-indigo-600 file:to-violet-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:brightness-110 dark:border-zinc-700/70 dark:bg-zinc-900/60 dark:text-zinc-200"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div v-if="warnings.length" class="space-y-2">
+      <UiAlert v-for="warning in warnings" :key="warning.id" variant="warning" class="flex items-start justify-between gap-4">
         <span>{{ warning.message }}</span>
-        <button
+        <UiButton
+          variant="ghost"
+          size="sm"
           type="button"
-          class="text-yellow-700 hover:text-yellow-900 dark:text-yellow-200 dark:hover:text-yellow-100"
+          class="text-amber-800 hover:text-amber-900 dark:text-amber-100"
           @click="dismissWarning(warning.id)"
           aria-label="Dismiss warning"
         >
           ✕
-        </button>
-      </div>
+        </UiButton>
+      </UiAlert>
     </div>
-    <div
-      v-if="isErrorModalOpen"
-      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-      @click.self="closeErrorModal"
-    >
-      <div
-        class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 max-w-md w-11/12 relative"
-        role="dialog"
-        aria-modal="true"
+
+    <UiModal v-if="isErrorModalOpen" @close="closeErrorModal">
+      <button
+        type="button"
+        class="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 dark:text-zinc-300 dark:hover:text-white"
+        @click="closeErrorModal"
+        aria-label="Close error dialog"
       >
-        <button
-          type="button"
-          class="absolute top-3 right-3 text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
-          @click="closeErrorModal"
-          aria-label="Close error dialog"
-        >
-          ✕
-        </button>
-        <h4 class="text-lg font-semibold text-gray-800 dark:text-white mb-2">
-          Upload error
-        </h4>
-        <p class="text-gray-700 dark:text-gray-200">
-          {{ errorMessage }}
-        </p>
-      </div>
-    </div>
-    <div
-      v-if="showSheetTabs"
-      class="w-full max-w-xl flex items-center gap-2 my-4"
-    >
+        ✕
+      </button>
+      <h4 class="text-lg font-semibold text-zinc-900 dark:text-white">Upload error</h4>
+      <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+        {{ errorMessage }}
+      </p>
+    </UiModal>
+
+    <div v-if="showSheetTabs" class="flex items-center gap-2">
       <button
         v-if="hasTabsOverflow && canScrollLeft"
         type="button"
-        class="px-2 py-1 rounded-md border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-200"
+        class="rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-xs text-zinc-600 shadow-sm hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-300"
         @click="scrollTabs(-1)"
         aria-label="Scroll sheets left"
       >
@@ -77,10 +79,10 @@
           v-for="(sheetName, index) in displaySheetNames"
           :key="sheetName"
           type="button"
-          class="inline-flex items-center px-3 py-1 mx-1 rounded-full border text-sm transition"
+          class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition"
           :class="index === activeTabIndex
-            ? 'bg-blue-500 text-white border-blue-500'
-            : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'"
+            ? 'border-transparent bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm'
+            : 'border-zinc-200/70 bg-white/70 text-zinc-600 hover:bg-white dark:border-zinc-700/70 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-900'"
           @click="workbookRef ? selectSheet(index) : selectDemoSheet(index)"
         >
           {{ sheetName }}
@@ -89,7 +91,7 @@
       <button
         v-if="hasTabsOverflow && canScrollRight"
         type="button"
-        class="px-2 py-1 rounded-md border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-200"
+        class="rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-xs text-zinc-600 shadow-sm hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-300"
         @click="scrollTabs(1)"
         aria-label="Scroll sheets right"
       >
@@ -102,12 +104,20 @@
 <script>
 import ExcelJS from "exceljs";
 import { nextTick } from "vue";
+import UiAlert from "./ui/Alert.vue";
+import UiButton from "./ui/Button.vue";
+import UiModal from "./ui/Modal.vue";
 
 const MAX_SHEETS = 10;
 const MAX_ROWS = 50;
 
 export default {
   name: "FileUpload",
+  components: {
+    UiAlert,
+    UiButton,
+    UiModal,
+  },
   props: {
     demoSheets: {
       type: Array,
@@ -116,10 +126,6 @@ export default {
     demoActiveIndex: {
       type: Number,
       default: 0,
-    },
-    isDemoMode: {
-      type: Boolean,
-      default: true,
     },
   },
   data() {
@@ -163,7 +169,7 @@ export default {
   computed: {
     displaySheetNames() {
       if (this.workbookRef) return this.sheetNames;
-      if (this.isDemoMode && Array.isArray(this.demoSheets)) {
+      if (Array.isArray(this.demoSheets)) {
         return this.demoSheets.map((sheet) => sheet.name);
       }
       return [];
@@ -313,7 +319,7 @@ export default {
       this.updateTabsScrollState();
     },
     selectDemoSheet(index) {
-      if (this.workbookRef || !this.isDemoMode) return;
+      if (this.workbookRef) return;
       if (index === this.demoActiveIndex) return;
       this.$emit("demoSheetSelected", index);
     },

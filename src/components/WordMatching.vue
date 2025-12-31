@@ -140,7 +140,7 @@
         </h4>
         <div v-if="isRuleModalIncorrect" class="mb-4">
           <p class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1">
-            Correct answer:
+            Answer is:
           </p>
           <div v-if="activeCorrectIsImage" class="flex items-center justify-center">
             <img
