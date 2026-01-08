@@ -60,38 +60,46 @@
       </p>
     </UiModal>
 
-    <div v-if="showSheetTabs" class="flex items-center gap-2">
-      <button
+    <div v-if="showSheetTabs" class="relative w-full min-w-0 max-w-full overflow-hidden">
+      <div
         v-if="hasTabsOverflow && canScrollLeft"
-        type="button"
-        class="rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-xs text-zinc-600 shadow-sm hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-300"
-        @click="scrollTabs(-1)"
-        aria-label="Scroll sheets left"
-      >
-        ◀
-      </button>
+        class="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white/90 to-transparent dark:from-zinc-900/90"
+      />
+        <button
+          v-if="hasTabsOverflow && canScrollLeft"
+          type="button"
+          class="absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full border border-zinc-200 bg-white/80 p-2 text-zinc-700 shadow-sm backdrop-blur hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-200"
+          @click="scrollTabs(-1)"
+          aria-label="Scroll sheets left"
+        >
+          ◀
+        </button>
       <div
         ref="tabsContainer"
-        class="flex-1 overflow-x-auto whitespace-nowrap tabs-scrollbar-hide"
+        class="no-scrollbar flex w-full min-w-0 max-w-full flex-1 gap-2 overflow-x-auto whitespace-nowrap px-10 py-1"
         @scroll="updateTabsScrollState"
       >
-        <button
-          v-for="(sheetName, index) in displaySheetNames"
-          :key="sheetName"
-          type="button"
-          class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition"
-          :class="index === activeTabIndex
-            ? 'border-transparent bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm'
-            : 'border-zinc-200/70 bg-white/70 text-zinc-600 hover:bg-white dark:border-zinc-700/70 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-900'"
-          @click="workbookRef ? selectSheet(index) : selectDemoSheet(index)"
-        >
-          {{ sheetName }}
-        </button>
-      </div>
+          <button
+            v-for="(sheetName, index) in displaySheetNames"
+            :key="sheetName"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition"
+            :class="index === activeTabIndex
+              ? 'border-transparent bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm'
+              : 'border-zinc-200/70 bg-white/70 text-zinc-600 hover:bg-white dark:border-zinc-700/70 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-900'"
+            @click="workbookRef ? selectSheet(index) : selectDemoSheet(index)"
+          >
+            {{ sheetName }}
+          </button>
+        </div>
+      <div
+        v-if="hasTabsOverflow && canScrollRight"
+        class="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white/90 to-transparent dark:from-zinc-900/90"
+      />
       <button
         v-if="hasTabsOverflow && canScrollRight"
         type="button"
-        class="rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-xs text-zinc-600 shadow-sm hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-300"
+        class="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full border border-zinc-200 bg-white/80 p-2 text-zinc-700 shadow-sm backdrop-blur hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-200"
         @click="scrollTabs(1)"
         aria-label="Scroll sheets right"
       >
@@ -145,15 +153,34 @@ export default {
       warnings: [],
       isErrorModalOpen: false,
       errorMessage: "",
+      resizeObserver: null,
+      tabsWrapperRef: null,
     };
   },
   mounted() {
     window.addEventListener("resize", this.updateTabsScrollState);
     window.addEventListener("keydown", this.handleKeydown);
+    this.$nextTick(() => {
+      const tabsContainer = this.$refs.tabsContainer;
+      if (tabsContainer) {
+        this.resizeObserver = new ResizeObserver(() => this.updateTabsScrollState());
+        this.resizeObserver.observe(tabsContainer);
+        this.tabsWrapperRef = tabsContainer.parentElement;
+        if (this.tabsWrapperRef) {
+          this.resizeObserver.observe(this.tabsWrapperRef);
+        }
+      }
+      this.updateTabsScrollState();
+    });
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.updateTabsScrollState);
     window.removeEventListener("keydown", this.handleKeydown);
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+    this.tabsWrapperRef = null;
   },
   watch: {
     demoSheets: {
@@ -487,7 +514,8 @@ export default {
     scrollTabs(direction) {
       const container = this.$refs.tabsContainer;
       if (!container) return;
-      container.scrollBy({ left: direction * 250, behavior: "smooth" });
+      const scrollAmount = Math.round(container.clientWidth * 0.7);
+      container.scrollBy({ left: direction * scrollAmount, behavior: "smooth" });
     },
     updateTabsScrollState() {
       const container = this.$refs.tabsContainer;
@@ -499,10 +527,10 @@ export default {
       }
 
       const { scrollLeft, scrollWidth, clientWidth } = container;
-      this.hasTabsOverflow = scrollWidth > clientWidth + 1;
-      this.canScrollLeft = this.hasTabsOverflow && scrollLeft > 0;
-      this.canScrollRight =
-        this.hasTabsOverflow && scrollLeft + clientWidth < scrollWidth - 1;
+      const maxScrollLeft = scrollWidth - clientWidth;
+      this.hasTabsOverflow = maxScrollLeft > 1;
+      this.canScrollLeft = scrollLeft > 0;
+      this.canScrollRight = scrollLeft < maxScrollLeft - 1;
     },
     normalizeCellValue(value) {
       if (typeof value === "string") return value.trim();
@@ -549,6 +577,15 @@ export default {
 }
 
 .tabs-scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 </style>
