@@ -18,15 +18,29 @@
         >
           <!-- Left Column -->
           <div class="relative w-5/12">
-            <button
-              v-if="item.incorrect || (item.matched && item.rule)"
-              type="button"
-              class="absolute top-2 right-2 w-6 h-6 rounded-full border border-gray-400 text-gray-700 text-xs flex items-center justify-center bg-white/80 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer dark:bg-gray-800/80 dark:text-gray-200 dark:hover:bg-gray-700"
-              @click.stop="openRuleModal(item, $event)"
-              :aria-label="item.incorrect ? 'Show correct answer' : 'Show rule'"
-            >
-              ?
-            </button>
+            <div class="absolute top-2 right-2 flex items-center gap-2">
+              <button
+                v-if="item.incorrect || (item.matched && item.rule)"
+                type="button"
+                class="w-6 h-6 rounded-full border border-gray-400 text-gray-700 text-xs flex items-center justify-center bg-white/80 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer dark:bg-gray-800/80 dark:text-gray-200 dark:hover:bg-gray-700"
+                @click.stop="openRuleModal(item, $event)"
+                :aria-label="item.incorrect ? 'Show correct answer' : 'Show rule'"
+              >
+                ?
+              </button>
+              <button
+                v-if="item.matched && !item.incorrect"
+                type="button"
+                class="w-6 h-6 rounded-full border text-xs flex items-center justify-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                :class="item.manuallyAdded
+                  ? 'border-indigo-600 bg-indigo-500 text-white shadow-sm dark:border-indigo-400 dark:bg-indigo-500'
+                  : 'border-gray-400 bg-white/80 text-gray-700 hover:bg-white dark:border-gray-400 dark:bg-gray-800/80 dark:text-gray-200 dark:hover:bg-gray-700'"
+                @click.stop="toggleManualInclude(item)"
+                aria-label="Add to errors download"
+              >
+                +
+              </button>
+            </div>
             <div
               class="w-full flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
               :class="[
@@ -237,8 +251,6 @@ export default {
       if (this.isRuleModalIncorrect) return `Result for ${this.activeRuleWord}`;
       return `Rule for ${this.activeRuleWord}`;
     },
-  },
-  computed: {
     successRate() {
       if (this.localWords.length === 0) return 0;
       const correctCount = this.localWords.filter((item) => item.matched).length;
@@ -247,7 +259,7 @@ export default {
     showDownload() {
       return (
         this.localWords.every((item) => item.matched || item.incorrect) &&
-        this.incorrectPairs.length > 0
+        this.errorExportRows.length > 0
       );
     },
     allWordsProcessed() {
@@ -258,6 +270,9 @@ export default {
     },
     showPlayAgain() {
       return this.allWordsProcessed && !this.isSampleList;
+    },
+    errorExportRows() {
+      return this.buildErrorExportRows();
     },
   },
   watch: {
@@ -419,9 +434,10 @@ export default {
       link.click();
     },
     async downloadErrors() {
+      const exportRows = this.buildErrorExportRows();
       if (this.fileType === "csv") {
         const delimiter = this.csvDelimiter || ",";
-        const rows = this.incorrectPairs.map(({ word, correct, rule }) => [
+        const rows = exportRows.map(({ word, correct, rule }) => [
           word,
           correct,
           rule || "",
@@ -439,7 +455,7 @@ export default {
       const worksheet = workbook.addWorksheet("Errors");
 
       // Add incorrect pairs without headers
-      this.incorrectPairs.forEach(({ word, correct, rule }) => worksheet.addRow([word, correct, rule || ""]));
+      exportRows.forEach(({ word, correct, rule }) => worksheet.addRow([word, correct, rule || ""]));
 
       // Save the file
       const buffer = await workbook.xlsx.writeBuffer();
@@ -469,6 +485,7 @@ export default {
           matched: false,
           incorrect: false,
           selectedMatch: "",
+          manuallyAdded: false,
           }))
         );
         const rightItems = newWords.map(({ match }) => ({ match, matched: false }));
@@ -553,6 +570,21 @@ export default {
       } catch {
         // Ignore storage errors.
       }
+    },
+    toggleManualInclude(item) {
+      item.manuallyAdded = !item.manuallyAdded;
+    },
+    buildErrorExportRows() {
+      const manualRows = this.localWords
+        .filter((item) => item.matched && item.manuallyAdded)
+        .map(({ word, match, rule }) => ({ word, correct: match, rule: rule || "" }));
+      const merged = [...this.incorrectPairs, ...manualRows];
+      const seen = new Set();
+      return merged.filter((row) => {
+        if (seen.has(row.word)) return false;
+        seen.add(row.word);
+        return true;
+      });
     },
     escapeCsvCell(value) {
       const stringValue = value === null || value === undefined ? "" : String(value);
