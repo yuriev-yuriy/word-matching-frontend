@@ -10,82 +10,108 @@
       <h3 class="text-lg font-semibold text-gray-700 dark:text-white text-center mb-4">
         Words and Matches
       </h3>
-      <ul class="space-y-2">
-        <li
-          v-for="(item, index) in localWords"
-          :key="index"
-          class="flex justify-around"
+      <TransitionGroup
+        name="card"
+        tag="div"
+        class="grid grid-cols-2 gap-4 items-start grid-flow-row-dense"
+      >
+        <!-- Left Column -->
+        <div
+          v-for="entry in visibleLeftItems"
+          :key="entry.item.uid"
+          class="col-start-1 relative"
         >
-          <!-- Left Column -->
-          <div class="relative w-5/12">
-            <div class="absolute top-2 right-2 flex items-center gap-2">
-              <button
-                v-if="item.incorrect || (item.matched && item.rule)"
-                type="button"
-                class="w-6 h-6 rounded-full border border-gray-400 text-gray-700 text-xs flex items-center justify-center bg-white/80 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer dark:bg-gray-800/80 dark:text-gray-200 dark:hover:bg-gray-700"
-                @click.stop="openRuleModal(item, $event)"
-                :aria-label="item.incorrect ? 'Show correct answer' : 'Show rule'"
-              >
-                ?
-              </button>
-              <button
-                v-if="item.matched && !item.incorrect"
-                type="button"
-                class="w-6 h-6 rounded-full border text-xs flex items-center justify-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                :class="item.manuallyAdded
-                  ? 'border-indigo-600 bg-indigo-500 text-white shadow-sm dark:border-indigo-400 dark:bg-indigo-500'
-                  : 'border-gray-400 bg-white/80 text-gray-700 hover:bg-white dark:border-gray-400 dark:bg-gray-800/80 dark:text-gray-200 dark:hover:bg-gray-700'"
-                @click.stop="toggleManualInclude(item)"
-                aria-label="Add to errors download"
-              >
-                +
-              </button>
+          <div class="absolute top-2 right-2 flex items-center gap-2">
+              <div v-if="entry.item.incorrect || (entry.item.matched && entry.item.rule)" class="relative group">
+                <button
+                  type="button"
+                  class="w-6 h-6 rounded-full border border-gray-400 text-gray-700 text-xs flex items-center justify-center bg-white/80 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer dark:bg-gray-800/80 dark:text-gray-200 dark:hover:bg-gray-700"
+                  @click.stop="openRuleModal(entry.item, $event)"
+                  @mouseenter="setTooltipPlacement(`left-${entry.i}-rule`, $event)"
+                  @focus="setTooltipPlacement(`left-${entry.i}-rule`, $event)"
+                  :aria-label="entry.item.incorrect ? 'Show correct answer' : 'Show rule'"
+                >
+                  ?
+                </button>
+                <span
+                  class="absolute px-2 py-1 text-xs rounded-md bg-gray-900 text-white shadow-sm opacity-0 translate-y-1 transition pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 dark:bg-gray-700"
+                  :class="tooltipPlacementClass(`left-${entry.i}-rule`)"
+                >
+                  Show correct answer / rule
+                </span>
+              </div>
+              <div v-if="entry.item.matched && !entry.item.incorrect" class="relative group">
+                <button
+                  type="button"
+                  class="w-6 h-6 rounded-full border text-xs flex items-center justify-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  :class="entry.item.manuallyAdded
+                    ? 'border-indigo-600 bg-indigo-500 text-white shadow-sm dark:border-indigo-400 dark:bg-indigo-500'
+                    : 'border-gray-400 bg-white/80 text-gray-700 hover:bg-white dark:border-gray-400 dark:bg-gray-800/80 dark:text-gray-200 dark:hover:bg-gray-700'"
+                  @click.stop="toggleManualInclude(entry.item)"
+                  @mouseenter="setTooltipPlacement(`left-${entry.i}-manual`, $event)"
+                  @focus="setTooltipPlacement(`left-${entry.i}-manual`, $event)"
+                  aria-label="Add to errors download"
+                >
+                  +
+                </button>
+                <span
+                  class="absolute px-2 py-1 text-xs rounded-md bg-gray-900 text-white shadow-sm opacity-0 translate-y-1 transition pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 dark:bg-gray-700"
+                  :class="tooltipPlacementClass(`left-${entry.i}-manual`)"
+                >
+                  {{ entry.item.manuallyAdded ? 'Remove from errors file' : 'Add this word to errors file' }}
+                </span>
+              </div>
             </div>
             <div
               class="w-full flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
               :class="[
-                item.matched
+                entry.item.matched
                   ? 'bg-green-100 text-green-800 pointer-events-none'
-                  : item.incorrect
+                  : entry.item.incorrect
                   ? 'bg-red-100 text-red-800 pointer-events-none'
-                  : selected.left === index
+                  : selected.left === entry.i
                   ? 'bg-blue-100 text-blue-800'
                   : 'hover:bg-gray-200 dark:hover:bg-gray-600',
               ]"
-              @click.stop="selectWord(index, 'left')"
+              @click.stop="selectWord(entry.i, 'left')"
             >
             <img
-              v-if="isImageUrl(item.word)"
-              :src="item.word"
+              v-if="isImageUrl(entry.item.word)"
+              :src="entry.item.word"
               alt="Image"
               class="max-w-full max-h-20 rounded"
             />
-            <span v-else>{{ item.word }}</span>
+            <span v-else>{{ entry.item.word }}</span>
             </div>
-          </div>
+        </div>
 
-          <!-- Right Column -->
+        <!-- Right Column -->
+        <div
+          v-for="entry in visibleRightItems"
+          :key="entry.item.uid"
+          class="col-start-2"
+        >
           <div
-            class="w-5/12 flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
+            class="w-full flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
             :class="[
-              shuffledMatches[index]?.matched
+              entry.item.matched
                 ? 'bg-green-100 text-green-800 pointer-events-none'
-                : selected.right === index
+                : selected.right === entry.i
                 ? 'bg-blue-100 text-blue-800'
                 : 'hover:bg-gray-200 dark:hover:bg-gray-600',
             ]"
-            @click.stop="selectWord(index, 'right')"
+            @click.stop="selectWord(entry.i, 'right')"
           >
             <img
-              v-if="isImageUrl(shuffledMatches[index]?.match)"
-              :src="shuffledMatches[index]?.match"
+              v-if="isImageUrl(entry.item.match)"
+              :src="entry.item.match"
               alt="Image"
               class="max-w-full max-h-20 rounded"
             />
-            <span v-else>{{ shuffledMatches[index]?.match }}</span>
+            <span v-else>{{ entry.item.match }}</span>
           </div>
-        </li>
-      </ul>
+        </div>
+      </TransitionGroup>
     </div>
 
     <div class="mt-4 text-center pb-6">
@@ -244,6 +270,8 @@ export default {
       activeCorrectIsImage: false,
       correctImageFailed: false,
       lastFocusedElement: null,
+      tooltipPlacement: {},
+      uidCounter: 0,
     };
   },
   computed: {
@@ -270,6 +298,24 @@ export default {
     },
     showPlayAgain() {
       return this.allWordsProcessed && !this.isSampleList;
+    },
+    visibleLeftItems() {
+      return this.localWords
+        .map((item, i) => ({ item, i }))
+        .filter(({ item }) => {
+          if (!item) return false;
+          if (this.allWordsProcessed) return true;
+          return !(item.matched && !item.incorrect);
+        });
+    },
+    visibleRightItems() {
+      return this.shuffledMatches
+        .map((item, i) => ({ item, i }))
+        .filter(({ item }) => {
+          if (!item) return false;
+          if (this.allWordsProcessed) return true;
+          return !item.matched;
+        });
     },
     errorExportRows() {
       return this.buildErrorExportRows();
@@ -302,6 +348,36 @@ export default {
       } catch {
         return false;
       }
+    },
+    setTooltipPlacement(key, event) {
+      const rect = event?.currentTarget?.getBoundingClientRect?.();
+      if (!rect) return;
+      const tooltipHeight = 32;
+      const gap = 8;
+      const spaceAbove = rect.top;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      let placement = "below";
+
+      if (spaceBelow < tooltipHeight + gap && spaceAbove >= tooltipHeight + gap) {
+        placement = "above";
+      } else if (spaceAbove < tooltipHeight + gap && spaceBelow >= tooltipHeight + gap) {
+        placement = "below";
+      } else {
+        placement = spaceBelow >= spaceAbove ? "below" : "above";
+      }
+
+      this.tooltipPlacement[key] = placement;
+    },
+    tooltipPlacementClass(key) {
+      return this.tooltipPlacement[key] === "above"
+        ? "bottom-full right-0 mb-2"
+        : "top-full right-0 mt-2";
+    },
+    shouldHideLeft(item) {
+      return !this.allWordsProcessed && item.matched && !item.incorrect;
+    },
+    shouldHideRight(item) {
+      return !this.allWordsProcessed && Boolean(item?.matched);
     },
     shuffleArray(array) {
       return array.sort(() => Math.random() - 0.5);
@@ -475,6 +551,7 @@ export default {
       this.shuffledMatches = [];
       this.selected = { left: null, right: null };
       this.incorrectPairs = [];
+      this.uidCounter = 0;
 
       if (Array.isArray(newWords) && newWords.length > 0) {
         const leftItems = this.shuffleArray(
@@ -486,9 +563,14 @@ export default {
           incorrect: false,
           selectedMatch: "",
           manuallyAdded: false,
+          uid: `left-${this.uidCounter++}`,
           }))
         );
-        const rightItems = newWords.map(({ match }) => ({ match, matched: false }));
+        const rightItems = newWords.map(({ match }) => ({
+          match,
+          matched: false,
+          uid: `right-${this.uidCounter++}`,
+        }));
 
         this.localWords = leftItems;
         this.shuffledMatches = this.shuffleRightWithGuard(leftItems, rightItems);
@@ -599,3 +681,35 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.card-enter-active,
+.card-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.card-enter-from,
+.card-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.card-enter-to,
+.card-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.card-move {
+  transition: transform 1000ms ease-in-out;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-enter-active,
+  .card-leave-active,
+  .card-move {
+    transition: none !important;
+  }
+}
+</style>
