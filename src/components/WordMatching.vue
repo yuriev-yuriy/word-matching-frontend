@@ -7,9 +7,27 @@
     @click="handleContainerClick"
   >
     <div v-if="localWords.length && shuffledMatches.length" class="w-full">
-      <h3 class="text-lg font-semibold text-gray-700 dark:text-white text-center mb-4">
-        Words and Matches
-      </h3>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h3 class="text-lg font-semibold text-gray-700 dark:text-white">
+          Words and Matches
+        </h3>
+        <div class="flex items-center gap-2">
+          <button
+            v-for="mode in modeOptions"
+            :key="mode.id"
+            type="button"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            :class="displayMode === mode.id
+              ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/20 dark:text-blue-200'
+              : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:bg-gray-800'"
+            :aria-pressed="displayMode === mode.id"
+            :aria-label="mode.label"
+            @click="setDisplayMode(mode.id)"
+          >
+            {{ mode.icon }}
+          </button>
+        </div>
+      </div>
       <TransitionGroup
         name="card"
         tag="div"
@@ -40,7 +58,7 @@
                   Show correct answer / rule
                 </span>
               </div>
-              <div v-if="entry.item.matched && !entry.item.incorrect" class="relative group">
+              <div v-if="(entry.item.matched && !entry.item.incorrect) || (isHiddenAnswerMode && areAllAnswersRevealed)" class="relative group">
                 <button
                   type="button"
                   class="w-6 h-6 rounded-full border text-xs flex items-center justify-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -94,21 +112,29 @@
           <div
             class="w-full flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
             :class="[
+              isHiddenAnswerMode && !isAnswerRevealed(entry.item)
+                ? 'bg-gray-100 text-gray-400'
+                : '',
               entry.item.matched
                 ? 'bg-green-100 text-green-800 pointer-events-none'
                 : selected.right === entry.i
                 ? 'bg-blue-100 text-blue-800'
                 : 'hover:bg-gray-200 dark:hover:bg-gray-600',
             ]"
-            @click.stop="selectWord(entry.i, 'right')"
+            @click.stop="handleRightClick(entry)"
           >
-            <img
-              v-if="isImageUrl(entry.item.match)"
-              :src="entry.item.match"
-              alt="Image"
-              class="max-w-full max-h-20 rounded"
-            />
-            <span v-else>{{ entry.item.match }}</span>
+            <template v-if="isHiddenAnswerMode && !isAnswerRevealed(entry.item)">
+              <span class="uppercase tracking-wide text-xs font-semibold">Tap to reveal</span>
+            </template>
+            <template v-else>
+              <img
+                v-if="isImageUrl(entry.item.match)"
+                :src="entry.item.match"
+                alt="Image"
+                class="max-w-full max-h-20 rounded"
+              />
+              <span v-else>{{ entry.item.match }}</span>
+            </template>
           </div>
         </div>
       </TransitionGroup>
@@ -142,7 +168,7 @@
         Play again
       </button>
       <p
-        v-else-if="allWordsProcessed"
+        v-else-if="allWordsProcessed && !isHiddenAnswerMode"
         class="text-gray-500 dark:text-gray-400"
       >
         No errors to download. Great job!
@@ -260,6 +286,8 @@ export default {
     return {
       localWords: [],
       shuffledMatches: [],
+      displayMode: "standard",
+      revealedAnswers: {},
       selected: { left: null, right: null },
       incorrectPairs: [],
       isRuleModalOpen: false,
@@ -275,6 +303,47 @@ export default {
     };
   },
   computed: {
+    modeOptions() {
+      return [
+        { id: "standard", label: "Standard mode", icon: "AB" },
+        { id: "swap", label: "Swap mode", icon: "BA" },
+        { id: "hidden-answer", label: "Hidden answer mode", icon: "A?" },
+      ];
+    },
+    modeConfig() {
+      const configs = {
+        standard: {
+          id: "standard",
+          swapColumns: false,
+          shuffleLeft: true,
+          shuffleRight: true,
+          lockPairs: false,
+        },
+        swap: {
+          id: "swap",
+          swapColumns: true,
+          shuffleLeft: false,
+          shuffleRight: true,
+          lockPairs: false,
+        },
+        "hidden-answer": {
+          id: "hidden-answer",
+          swapColumns: false,
+          shuffleLeft: true,
+          shuffleRight: false,
+          lockPairs: true,
+        },
+      };
+      return configs[this.displayMode] || configs.standard;
+    },
+    isHiddenAnswerMode() {
+      return this.displayMode === "hidden-answer";
+    },
+    areAllAnswersRevealed() {
+      if (!this.isHiddenAnswerMode) return false;
+      if (this.shuffledMatches.length === 0) return false;
+      return this.shuffledMatches.every((item) => this.revealedAnswers[item.uid]);
+    },
     activeRuleHeading() {
       if (this.isRuleModalIncorrect) return `Result for ${this.activeRuleWord}`;
       return `Rule for ${this.activeRuleWord}`;
@@ -285,19 +354,31 @@ export default {
       return Math.round((correctCount / this.localWords.length) * 100);
     },
     showDownload() {
+      if (this.isHiddenAnswerMode) {
+        return this.isHiddenAnswerFinished && this.hasHiddenAnswerErrors;
+      }
       return (
         this.localWords.every((item) => item.matched || item.incorrect) &&
         this.errorExportRows.length > 0
       );
     },
     allWordsProcessed() {
+      if (this.isHiddenAnswerMode) return this.isHiddenAnswerFinished;
       return this.localWords.every((item) => item.matched || item.incorrect);
     },
     showDownloadSample() {
       return !this.showDownload && this.isSampleList;
     },
     showPlayAgain() {
+      if (this.isHiddenAnswerMode) return this.isHiddenAnswerFinished;
       return this.allWordsProcessed && !this.isSampleList;
+    },
+    isHiddenAnswerFinished() {
+      return this.isHiddenAnswerMode && this.areAllAnswersRevealed;
+    },
+    hasHiddenAnswerErrors() {
+      if (!this.isHiddenAnswerMode) return false;
+      return this.localWords.some((item) => item.manuallyAdded);
     },
     visibleLeftItems() {
       return this.localWords
@@ -330,6 +411,10 @@ export default {
       },
     },
     sheetId() {
+      this.restoreProgress();
+    },
+    displayMode() {
+      this.resetState(this.words);
       this.restoreProgress();
     },
   },
@@ -395,6 +480,7 @@ export default {
       return shuffled;
     },
     selectWord(index, column) {
+      if (this.isHiddenAnswerMode) return;
       if (column === "left") {
         this.selected.left = this.selected.left === index ? null : index;
       } else if (column === "right") {
@@ -551,30 +637,49 @@ export default {
       this.shuffledMatches = [];
       this.selected = { left: null, right: null };
       this.incorrectPairs = [];
+      this.revealedAnswers = {};
       this.uidCounter = 0;
 
       if (Array.isArray(newWords) && newWords.length > 0) {
-        const leftItems = this.shuffleArray(
-          newWords.map(({ word, match, rule }) => ({
-          word,
-          match,
+        const baseLeftItems = newWords.map(({ word, match, rule }) => ({
+          word: this.modeConfig.swapColumns ? match : word,
+          match: this.modeConfig.swapColumns ? word : match,
           rule,
           matched: false,
           incorrect: false,
           selectedMatch: "",
           manuallyAdded: false,
           uid: `left-${this.uidCounter++}`,
-          }))
-        );
-        const rightItems = newWords.map(({ match }) => ({
-          match,
+        }));
+        const leftItems = this.modeConfig.shuffleLeft
+          ? this.shuffleArray([...baseLeftItems])
+          : baseLeftItems;
+        const rightItemsSource = this.modeConfig.lockPairs ? leftItems : newWords;
+        const rightItems = rightItemsSource.map(({ word, match }) => ({
+          match: this.modeConfig.swapColumns ? word : match,
           matched: false,
           uid: `right-${this.uidCounter++}`,
         }));
 
         this.localWords = leftItems;
-        this.shuffledMatches = this.shuffleRightWithGuard(leftItems, rightItems);
+        this.shuffledMatches = this.modeConfig.shuffleRight
+          ? this.shuffleRightWithGuard(leftItems, rightItems)
+          : rightItems;
       }
+    },
+    setDisplayMode(modeId) {
+      if (modeId === this.displayMode) return;
+      this.displayMode = modeId;
+    },
+    handleRightClick(entry) {
+      if (this.isHiddenAnswerMode) {
+        this.revealedAnswers[entry.item.uid] = true;
+        return;
+      }
+      this.selectWord(entry.i, "right");
+    },
+    isAnswerRevealed(item) {
+      return Boolean(this.revealedAnswers[item.uid]);
     },
     getProgressKey() {
       if (!this.fileId || !this.sheetId) return "";
@@ -657,6 +762,11 @@ export default {
       item.manuallyAdded = !item.manuallyAdded;
     },
     buildErrorExportRows() {
+      if (this.isHiddenAnswerMode) {
+        return this.localWords
+          .filter((item) => item.manuallyAdded)
+          .map(({ word, match, rule }) => ({ word, correct: match, rule: rule || "" }));
+      }
       const manualRows = this.localWords
         .filter((item) => item.matched && item.manuallyAdded)
         .map(({ word, match, rule }) => ({ word, correct: match, rule: rule || "" }));
