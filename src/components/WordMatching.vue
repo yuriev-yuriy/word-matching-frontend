@@ -58,7 +58,7 @@
                   Show correct answer / rule
                 </span>
               </div>
-              <div v-if="(entry.item.matched && !entry.item.incorrect) || (isHiddenAnswerMode && areAllAnswersRevealed)" class="relative group">
+              <div v-if="(entry.item.matched && !entry.item.incorrect) || (activeModeCapabilities.canReveal && areAllAnswersRevealed)" class="relative group">
                 <button
                   type="button"
                   class="w-6 h-6 rounded-full border text-xs flex items-center justify-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -112,7 +112,7 @@
           <div
             class="w-full flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
             :class="[
-              isHiddenAnswerMode && !isAnswerRevealed(entry.item)
+              activeModeCapabilities.canReveal && !isAnswerRevealed(entry.item)
                 ? 'bg-gray-100 text-gray-400'
                 : '',
               entry.item.matched
@@ -123,7 +123,7 @@
             ]"
             @click.stop="handleRightClick(entry)"
           >
-            <template v-if="isHiddenAnswerMode && !isAnswerRevealed(entry.item)">
+            <template v-if="activeModeCapabilities.canReveal && !isAnswerRevealed(entry.item)">
               <span class="uppercase tracking-wide text-xs font-semibold">Tap to reveal</span>
             </template>
             <template v-else>
@@ -168,13 +168,13 @@
         Play again
       </button>
       <p
-        v-else-if="allWordsProcessed && !isHiddenAnswerMode"
+        v-else-if="isGameFinished && activeModeCapabilities.completionType !== 'reveal'"
         class="text-gray-500 dark:text-gray-400"
       >
         No errors to download. Great job!
       </p>
       <button
-        v-if="allWordsProcessed && !showDownload && showPlayAgain"
+        v-if="isGameFinished && !showDownload && showPlayAgain"
         class="mt-3 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300"
         @click.stop="playAgain"
       >
@@ -336,13 +336,41 @@ export default {
       };
       return configs[this.displayMode] || configs.standard;
     },
-    isHiddenAnswerMode() {
-      return this.displayMode === "hidden-answer";
+    modeCapabilities() {
+      return {
+        standard: {
+          canMatch: true,
+          canReveal: false,
+          usesManualErrors: true,
+          completionType: "matching",
+        },
+        swap: {
+          canMatch: true,
+          canReveal: false,
+          usesManualErrors: true,
+          completionType: "matching",
+        },
+        "hidden-answer": {
+          canMatch: false,
+          canReveal: true,
+          usesManualErrors: true,
+          completionType: "reveal",
+        },
+      };
+    },
+    activeModeCapabilities() {
+      return this.modeCapabilities[this.displayMode] || this.modeCapabilities.standard;
     },
     areAllAnswersRevealed() {
-      if (!this.isHiddenAnswerMode) return false;
+      if (!this.activeModeCapabilities.canReveal) return false;
       if (this.shuffledMatches.length === 0) return false;
       return this.shuffledMatches.every((item) => this.revealedAnswers[item.uid]);
+    },
+    isGameFinished() {
+      if (this.activeModeCapabilities.completionType === "reveal") {
+        return this.areAllAnswersRevealed;
+      }
+      return this.localWords.every((item) => item.matched || item.incorrect);
     },
     activeRuleHeading() {
       if (this.isRuleModalIncorrect) return `Result for ${this.activeRuleWord}`;
@@ -354,38 +382,23 @@ export default {
       return Math.round((correctCount / this.localWords.length) * 100);
     },
     showDownload() {
-      if (this.isHiddenAnswerMode) {
-        return this.isHiddenAnswerFinished && this.hasHiddenAnswerErrors;
-      }
-      return (
-        this.localWords.every((item) => item.matched || item.incorrect) &&
-        this.errorExportRows.length > 0
-      );
-    },
-    allWordsProcessed() {
-      if (this.isHiddenAnswerMode) return this.isHiddenAnswerFinished;
-      return this.localWords.every((item) => item.matched || item.incorrect);
+      return this.isGameFinished && this.errorExportRows.length > 0;
     },
     showDownloadSample() {
       return !this.showDownload && this.isSampleList;
     },
     showPlayAgain() {
-      if (this.isHiddenAnswerMode) return this.isHiddenAnswerFinished;
-      return this.allWordsProcessed && !this.isSampleList;
-    },
-    isHiddenAnswerFinished() {
-      return this.isHiddenAnswerMode && this.areAllAnswersRevealed;
-    },
-    hasHiddenAnswerErrors() {
-      if (!this.isHiddenAnswerMode) return false;
-      return this.localWords.some((item) => item.manuallyAdded);
+      if (this.activeModeCapabilities.completionType === "reveal") {
+        return this.isGameFinished;
+      }
+      return this.isGameFinished && !this.isSampleList;
     },
     visibleLeftItems() {
       return this.localWords
         .map((item, i) => ({ item, i }))
         .filter(({ item }) => {
           if (!item) return false;
-          if (this.allWordsProcessed) return true;
+          if (this.isGameFinished) return true;
           return !(item.matched && !item.incorrect);
         });
     },
@@ -394,7 +407,7 @@ export default {
         .map((item, i) => ({ item, i }))
         .filter(({ item }) => {
           if (!item) return false;
-          if (this.allWordsProcessed) return true;
+          if (this.isGameFinished) return true;
           return !item.matched;
         });
     },
@@ -458,12 +471,6 @@ export default {
         ? "bottom-full right-0 mb-2"
         : "top-full right-0 mt-2";
     },
-    shouldHideLeft(item) {
-      return !this.allWordsProcessed && item.matched && !item.incorrect;
-    },
-    shouldHideRight(item) {
-      return !this.allWordsProcessed && Boolean(item?.matched);
-    },
     shuffleArray(array) {
       return array.sort(() => Math.random() - 0.5);
     },
@@ -480,7 +487,7 @@ export default {
       return shuffled;
     },
     selectWord(index, column) {
-      if (this.isHiddenAnswerMode) return;
+      if (!this.activeModeCapabilities.canMatch) return;
       if (column === "left") {
         this.selected.left = this.selected.left === index ? null : index;
       } else if (column === "right") {
@@ -672,7 +679,7 @@ export default {
       this.displayMode = modeId;
     },
     handleRightClick(entry) {
-      if (this.isHiddenAnswerMode) {
+      if (this.activeModeCapabilities.canReveal) {
         this.revealedAnswers[entry.item.uid] = true;
         return;
       }
@@ -762,7 +769,10 @@ export default {
       item.manuallyAdded = !item.manuallyAdded;
     },
     buildErrorExportRows() {
-      if (this.isHiddenAnswerMode) {
+      return this.getErrorSourceRows();
+    },
+    getErrorSourceRows() {
+      if (this.activeModeCapabilities.completionType === "reveal") {
         return this.localWords
           .filter((item) => item.manuallyAdded)
           .map(({ word, match, rule }) => ({ word, correct: match, rule: rule || "" }));
