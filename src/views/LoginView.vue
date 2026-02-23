@@ -77,6 +77,8 @@ export default {
       this.validationErrors = {};
 
       try {
+        await api.get("/sanctum/csrf-cookie");
+
         await api.post("/api/login", {
           email: this.email,
           password: this.password,
