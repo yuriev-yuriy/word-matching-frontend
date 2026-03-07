@@ -11,7 +11,7 @@ export async function checkAuth() {
   authState.loading = true;
 
   try {
-    const response = await api.get('/api/me');
+    const response = await api.get('/me');
     authState.user = response.data;
     authState.isAuthenticated = true;
   } catch (error) {

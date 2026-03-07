@@ -97,14 +97,17 @@
     <SidebarMenu
       :isOpen="isSidebarOpen"
       :files="files"
-      :isLoggedIn="isLoggedIn"
+      :isLoggedIn="authState.isAuthenticated"
       @close="toggleSidebar"
       @fileLoaded="handleFileLoaded"
     />
 
     <button
       @click="toggleSidebar"
-      class="hidden md:inline-flex fixed top-24 left-6 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-indigo-400 z-40"
+      :class="[
+        'fixed top-26 left-6 px-4 py-2 rounded-xl inline-flex bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-indigo-400 z-40',
+        authState.isAuthenticated ? 'lg:hidden' : '',
+      ]"
     >
       Open Menu
     </button>
@@ -135,7 +138,6 @@ export default {
       isSidebarOpen: false,
       isUserMenuOpen: false,
       files: [],
-      isLoggedIn: false,
     };
   },
   watch: {
@@ -157,7 +159,7 @@ export default {
     },
     async logout() {
       try {
-        await api.post("/api/logout");
+        await api.post("/logout");
       } catch (e) {
         // optional: log silently
       }

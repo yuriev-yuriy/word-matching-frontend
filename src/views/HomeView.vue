@@ -3,10 +3,12 @@
     <section class="min-w-0 space-y-6" :class="isSampleList ? 'lg:col-span-8' : 'lg:col-span-12'">
       <UiCard>
         <FileUpload
+          :isAuthenticated="authState.isAuthenticated"
           :demoSheets="sampleSheets"
           :demoActiveIndex="activeDemoSheetIndex"
           @demoSheetSelected="handleDemoSheetSelected"
           @fileProcessed="handleFileProcessed"
+          @importFileSelected="handleImportFileSelected"
         />
       </UiCard>
 
@@ -23,14 +25,17 @@
           :demoSheets="sampleSheets"
         />
       </UiCard>
-      <UiCard class="lg:hidden">
-        <AboutText />
+      <UiCard
+        v-if="authState.isAuthenticated ? isDesktopViewport : true"
+        :class="authState.isAuthenticated ? 'hidden' : ''"
+      >
+        <AboutText :importRequest="importRequest" />
       </UiCard>
     </section>
 
-    <aside class="space-y-6 lg:col-span-4 md:hidden lg:block">
+    <aside class="space-y-6 lg:col-span-4 hidden lg:block">
       <UiCard v-if="isSampleList">
-        <AboutText />
+        <AboutText :importRequest="importRequest" />
       </UiCard>
     </aside>
   </div>
@@ -41,6 +46,7 @@ import FileUpload from "../components/FileUpload.vue";
 import WordMatching from "../components/WordMatching.vue";
 import AboutText from "../components/AboutText.vue";
 import UiCard from "../components/ui/Card.vue";
+import { authState } from "../state/auth";
 
 export default {
   name: "HomeView",
@@ -52,6 +58,8 @@ export default {
   },
   data() {
     return {
+      authState,
+      importRequest: null,
       words: [],
       fileName: "",
       fileId: "",
@@ -59,6 +67,7 @@ export default {
       fileType: "",
       csvDelimiter: ",",
       theme: "light",
+      isDesktopViewport: false,
       isSampleList: true,
       activeDemoSheetIndex: 0,
       sampleSheets: [
@@ -97,6 +106,12 @@ export default {
     };
   },
   methods: {
+    handleImportFileSelected(file) {
+      this.importRequest = {
+        file,
+        timestamp: Date.now(),
+      };
+    },
     handleFileProcessed({ words, fileName, fileId, sheetId, fileType, csvDelimiter }) {
       this.words = words;
       this.fileName = fileName;
@@ -118,10 +133,21 @@ export default {
       this.fileType = "";
       this.csvDelimiter = ",";
     },
+    syncViewport() {
+      if (typeof window === "undefined") return;
+      this.isDesktopViewport = window.innerWidth >= 1024;
+    },
   },
   created() {
     this.words = this.sampleSheets[0]?.rows || [];
     this.fileName = this.sampleSheets[0]?.name || "";
+    this.syncViewport();
+  },
+  mounted() {
+    window.addEventListener("resize", this.syncViewport);
+  },
+  beforeUnmount() {
+    window.removeEventListener("resize", this.syncViewport);
   },
 };
 </script>

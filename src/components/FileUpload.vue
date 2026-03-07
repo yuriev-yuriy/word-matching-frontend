@@ -127,6 +127,10 @@ export default {
     UiModal,
   },
   props: {
+    isAuthenticated: {
+      type: Boolean,
+      default: false,
+    },
     demoSheets: {
       type: Array,
       default: () => [],
@@ -212,6 +216,12 @@ export default {
     async handleFileUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
+
+      if (this.isAuthenticated) {
+        this.$emit("importFileSelected", file);
+        event.target.value = "";
+        return;
+      }
 
       try {
         this.resetWorkbookState();

@@ -8,7 +8,7 @@
     >
       <div class="p-4 flex justify-between items-center border-b border-gray-200 dark:border-dark-border">
         <h2 v-if="isLoggedIn" class="text-lg font-semibold text-gray-800 dark:text-dark-text">
-          Upload File
+          Word Lists
         </h2>
         <h2 v-else class="text-lg font-semibold text-gray-800 dark:text-dark-text">
           Greetings! 👋
@@ -23,57 +23,7 @@
         </button>
       </div>
       <template v-if="isLoggedIn">
-        <div class="p-4">
-          <label
-            for="file-upload"
-            class="block text-gray-700 dark:text-dark-text text-sm font-medium mb-2"
-          >
-            Drag and drop your file here or click to upload
-          </label>
-          <div
-            @drop.prevent="handleDrop"
-            @dragover.prevent
-            class="border-2 border-dashed border-gray-300 dark:border-dark-border rounded-lg h-32 flex items-center justify-center text-gray-500 dark:text-gray-400"
-          >
-            Drag & Drop or <span class="text-blue-500 hover:underline ml-1">Browse</span>
-          </div>
-          <input
-            type="file"
-            id="file-upload"
-            accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain,application/csv,application/vnd.oasis.opendocument.spreadsheet"
-            class="hidden"
-            @change="handleFileUpload"
-          />
-        </div>
-        <div class="p-4">
-          <h3 class="text-md font-semibold text-gray-800 dark:text-dark-text mb-2">
-            Files in Database
-          </h3>
-          <ul class="space-y-2">
-            <li
-              v-for="file in files"
-              :key="file.id"
-              class="flex justify-between items-center text-gray-700 dark:text-dark-text"
-            >
-              <span>{{ file.name }}</span>
-              <div class="flex space-x-2">
-                <button
-                  @click="loadFile(file)"
-                  class="text-blue-500 hover:underline"
-                >
-                  Load
-                </button>
-                <button
-                  v-if="canDelete(file)"
-                  @click="deleteFile(file)"
-                  class="text-red-500 hover:underline"
-                >
-                  Delete
-                </button>
-              </div>
-            </li>
-          </ul>
-        </div>
+        <WordListManager />
       </template>
       <template v-else>
         <div class="p-4 space-y-6 text-gray-700 dark:text-dark-text">
@@ -146,9 +96,14 @@
     </div>
   </template>
   
-  <script>
+<script>
+  import WordListManager from "./WordListManager.vue";
+
   export default {
     name: "SidebarMenu",
+    components: {
+      WordListManager,
+    },
     props: {
       isOpen: {
         type: Boolean,
@@ -166,34 +121,6 @@
     methods: {
       toggleSidebar() {
         this.$emit("close");
-      },
-      handleDrop(event) {
-        const file = event.dataTransfer.files[0];
-        if (file) {
-          this.uploadFile(file);
-        }
-      },
-      handleFileUpload(event) {
-        const file = event.target.files[0];
-        if (file) {
-          this.uploadFile(file);
-        }
-      },
-      uploadFile(file) {
-        console.log("File to upload:", file);
-        // Add logic to upload file
-      },
-      loadFile(file) {
-        console.log("Load file:", file);
-        // Add logic to load file
-      },
-      deleteFile(file) {
-        console.log("Delete file:", file);
-        // Add logic to delete file
-      },
-      canDelete(file) {
-        // Placeholder logic for determining delete permission
-        return false; // Update with actual user_id logic
       },
     },
   };

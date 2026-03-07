@@ -99,7 +99,7 @@ export default {
       this.validationErrors = {};
 
       try {
-        await api.get("/sanctum/csrf-cookie");
+        // await api.get("/sanctum/csrf-cookie");
 
         await api.post("/api/register", {
           name: this.name,
