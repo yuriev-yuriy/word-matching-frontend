@@ -1,6 +1,17 @@
 <template>
   <div class="px-4 py-6 text-left">
     <div class="rounded-xl border border-zinc-200 bg-white/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div class="mb-3 flex justify-end">
+        <button
+          v-if="authState.isAuthenticated"
+          type="button"
+          class="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+          @click="openAddWordModal"
+        >
+          Add word
+        </button>
+      </div>
+
       <p v-if="previewError" class="mb-3 text-xs text-red-600 dark:text-red-400">
         {{ previewError }}
       </p>
@@ -54,12 +65,20 @@
     @close="closePreviewModal"
     @confirm="confirmImport"
   />
+
+  <AddWordModal
+    :open="isAddWordModalOpen"
+    :lists="lists"
+    @close="closeAddWordModal"
+    @saved="handleWordSaved"
+  />
 </template>
 
 <script setup>
 import { onMounted, ref, watch } from 'vue';
 import api from '../services/api';
 import { authState } from '../state/auth';
+import AddWordModal from './AddWordModal.vue';
 import ImportPreviewModal from './ImportPreviewModal.vue';
 
 const props = defineProps({
@@ -75,6 +94,7 @@ const confirmError = ref('');
 const isPreviewModalOpen = ref(false);
 const isConfirmLoading = ref(false);
 const previewData = ref(null);
+const isAddWordModalOpen = ref(false);
 
 const loadLists = async () => {
   const response = await api.get('/api/word-lists');
@@ -130,6 +150,20 @@ const handleImportPreview = async (file) => {
 const closePreviewModal = () => {
   isPreviewModalOpen.value = false;
   confirmError.value = '';
+};
+
+const openAddWordModal = () => {
+  isAddWordModalOpen.value = true;
+};
+
+const closeAddWordModal = () => {
+  isAddWordModalOpen.value = false;
+};
+
+const handleWordSaved = async ({ createdNewList }) => {
+  if (createdNewList) {
+    await loadLists();
+  }
 };
 
 const confirmImport = async (payload) => {
