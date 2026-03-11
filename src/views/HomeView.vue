@@ -1,6 +1,6 @@
 <template>
   <div class="grid gap-6 lg:grid-cols-12">
-    <section class="min-w-0 space-y-6" :class="isSampleList ? 'lg:col-span-8' : 'lg:col-span-12'">
+    <section class="min-w-0 space-y-6 lg:col-span-8">
       <UiCard>
         <FileUpload
           :isAuthenticated="authState.isAuthenticated"
@@ -25,17 +25,18 @@
           :demoSheets="sampleSheets"
         />
       </UiCard>
-      <UiCard
-        v-if="authState.isAuthenticated ? isDesktopViewport : true"
-        :class="authState.isAuthenticated ? 'hidden' : ''"
-      >
-        <AboutText :importRequest="importRequest" />
+
+      <UiCard v-if="!authState.isAuthenticated && !isDesktopViewport">
+        <AboutText />
       </UiCard>
     </section>
 
     <aside class="space-y-6 lg:col-span-4 hidden lg:block">
-      <UiCard v-if="isSampleList">
-        <AboutText :importRequest="importRequest" />
+      <UiCard v-if="!authState.isAuthenticated">
+        <AboutText />
+      </UiCard>
+      <UiCard v-else>
+        <WordListManager :importRequest="importRequest" />
       </UiCard>
     </aside>
   </div>
@@ -45,6 +46,7 @@
 import FileUpload from "../components/FileUpload.vue";
 import WordMatching from "../components/WordMatching.vue";
 import AboutText from "../components/AboutText.vue";
+import WordListManager from "../components/WordListManager.vue";
 import UiCard from "../components/ui/Card.vue";
 import { authState } from "../state/auth";
 
@@ -54,6 +56,7 @@ export default {
     FileUpload,
     WordMatching,
     AboutText,
+    WordListManager,
     UiCard,
   },
   data() {

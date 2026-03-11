@@ -15,8 +15,18 @@
       <p v-if="previewError" class="mb-3 text-xs text-red-600 dark:text-red-400">
         {{ previewError }}
       </p>
+      <p
+        v-if="importSuccessMessage"
+        class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300"
+      >
+        {{ importSuccessMessage }}
+      </p>
 
-      <div v-if="lists.length === 0" class="text-sm text-zinc-500 dark:text-zinc-400">
+      <div v-if="isLoadingLists" class="text-sm text-zinc-500 dark:text-zinc-400">
+        Loading word lists...
+      </div>
+
+      <div v-else-if="lists.length === 0" class="text-sm text-zinc-500 dark:text-zinc-400">
         No word lists yet.
       </div>
 
@@ -24,11 +34,17 @@
         <li
           v-for="list in lists"
           :key="list.id"
-          class="flex items-center justify-between rounded-lg border border-zinc-200 bg-white/70 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40"
+          :class="[
+            'flex items-center justify-between rounded-lg border px-3 py-2 transition-colors duration-700',
+            list.isNew
+              ? 'border-emerald-300 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/25'
+              : 'border-zinc-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/40',
+          ]"
         >
           <button
             type="button"
             class="truncate text-left text-sm font-medium text-zinc-800 hover:text-indigo-600 dark:text-zinc-100 dark:hover:text-indigo-400"
+            @click="openEditListModal(list)"
           >
             {{ list.name }}
           </button>
@@ -38,6 +54,7 @@
               type="button"
               class="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               aria-label="Edit list"
+              @click="openEditListModal(list)"
             >
               ✎
             </button>
@@ -45,7 +62,7 @@
               type="button"
               class="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
               aria-label="Delete list"
-              @click="deleteList(list.id)"
+              @click="askDeleteList(list)"
             >
               🗑
             </button>
@@ -72,13 +89,56 @@
     @close="closeAddWordModal"
     @saved="handleWordSaved"
   />
+
+  <EditListModal
+    :open="isEditListModalOpen"
+    :list="activeList"
+    @close="closeEditListModal"
+    @renamed="handleListRenamed"
+  />
+
+  <Teleport to="body">
+    <div
+      v-if="isDeleteListModalOpen"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
+      @click.self="cancelDeleteList"
+    >
+      <div class="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+        <h4 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+          Delete word list "{{ listPendingDeletion?.name }}"?
+        </h4>
+        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+          This action cannot be undone.
+        </p>
+        <div class="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            :disabled="isDeletingList"
+            @click="cancelDeleteList"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="isDeletingList"
+            @click="confirmDeleteList"
+          >
+            {{ isDeletingList ? 'Deleting...' : 'Delete' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import api from '../services/api';
 import { authState } from '../state/auth';
 import AddWordModal from './AddWordModal.vue';
+import EditListModal from './EditListModal.vue';
 import ImportPreviewModal from './ImportPreviewModal.vue';
 
 const props = defineProps({
@@ -89,24 +149,61 @@ const props = defineProps({
 });
 
 const lists = ref([]);
+const isLoadingLists = ref(true);
 const previewError = ref('');
 const confirmError = ref('');
+const importSuccessMessage = ref('');
 const isPreviewModalOpen = ref(false);
 const isConfirmLoading = ref(false);
 const previewData = ref(null);
 const isAddWordModalOpen = ref(false);
+const isEditListModalOpen = ref(false);
+const activeList = ref(null);
+const isDeleteListModalOpen = ref(false);
+const listPendingDeletion = ref(null);
+const isDeletingList = ref(false);
+let importFeedbackTimeoutId = null;
 
 const loadLists = async () => {
-  const response = await api.get('/api/word-lists');
-  lists.value = response.data;
+  isLoadingLists.value = true;
+  try {
+    const response = await api.get('/api/word-lists');
+    lists.value = response.data;
+  } finally {
+    isLoadingLists.value = false;
+  }
 };
 
-const deleteList = async (id) => {
-  const confirmed = window.confirm('Delete this word list?');
-  if (!confirmed) return;
+const askDeleteList = (list) => {
+  listPendingDeletion.value = list ? { id: list.id, name: list.name } : null;
+  isDeleteListModalOpen.value = true;
+};
 
-  await api.delete(`/api/word-lists/${id}`);
-  await loadLists();
+const cancelDeleteList = () => {
+  if (isDeletingList.value) return;
+  listPendingDeletion.value = null;
+  isDeleteListModalOpen.value = false;
+};
+
+const confirmDeleteList = async () => {
+  const id = listPendingDeletion.value?.id;
+  if (!id) return;
+
+  isDeletingList.value = true;
+  try {
+    await api.delete(`/api/word-lists/${id}`);
+    const index = lists.value.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      lists.value.splice(index, 1);
+    }
+    if (activeList.value?.id === id) {
+      closeEditListModal();
+    }
+    listPendingDeletion.value = null;
+    isDeleteListModalOpen.value = false;
+  } finally {
+    isDeletingList.value = false;
+  }
 };
 
 const formatError = (error, fallback) => {
@@ -130,6 +227,7 @@ const handleImportPreview = async (file) => {
 
   previewError.value = '';
   confirmError.value = '';
+  importSuccessMessage.value = '';
 
   const formData = new FormData();
   formData.append('file', file);
@@ -160,6 +258,37 @@ const closeAddWordModal = () => {
   isAddWordModalOpen.value = false;
 };
 
+const openEditListModal = (list) => {
+  activeList.value = list ? { id: list.id, name: list.name } : null;
+  isEditListModalOpen.value = true;
+};
+
+const closeEditListModal = () => {
+  isEditListModalOpen.value = false;
+  activeList.value = null;
+};
+
+const handleSessionExpired = () => {
+  isPreviewModalOpen.value = false;
+  isAddWordModalOpen.value = false;
+  isEditListModalOpen.value = false;
+  activeList.value = null;
+};
+
+const handleListRenamed = ({ id, name }) => {
+  const index = lists.value.findIndex((item) => item.id === id);
+  if (index !== -1) {
+    lists.value[index] = {
+      ...lists.value[index],
+      name,
+    };
+  }
+
+  if (activeList.value?.id === id) {
+    activeList.value = { ...activeList.value, name };
+  }
+};
+
 const handleWordSaved = async ({ createdNewList }) => {
   if (createdNewList) {
     await loadLists();
@@ -169,27 +298,66 @@ const handleWordSaved = async ({ createdNewList }) => {
 const confirmImport = async (payload) => {
   isConfirmLoading.value = true;
   confirmError.value = '';
+  importSuccessMessage.value = '';
 
   try {
-    await api.post('/api/word-lists/import/confirm', payload);
+    const response = await api.post('/api/word-lists/import/confirm', payload);
+    const createdLists = Array.isArray(response.data?.created_lists) ? response.data.created_lists : [];
+
+    createdLists.forEach((list) => {
+      const exists = lists.value.some((item) => item.id === list.id);
+      if (exists) return;
+
+      lists.value.push({
+        id: list.id,
+        name: list.name,
+        words_count: list.words_created,
+        isNew: true,
+      });
+    });
 
     isPreviewModalOpen.value = false;
     previewData.value = null;
-    await loadLists();
-  } catch (error) {
-    if (error?.response?.status === 422) {
-      confirmError.value = formatError(error, 'Import confirm failed.');
+    if (createdLists.length === 1) {
+      const list = createdLists[0];
+      importSuccessMessage.value = `${list.words_created} words imported into '${list.name}'.`;
+    } else if (createdLists.length > 1) {
+      importSuccessMessage.value = `Import successful: ${createdLists.length} lists created.`;
     } else {
-      confirmError.value = 'Import confirm failed.';
+      importSuccessMessage.value = 'Words imported successfully.';
     }
+
+    if (importFeedbackTimeoutId) {
+      clearTimeout(importFeedbackTimeoutId);
+    }
+    importFeedbackTimeoutId = setTimeout(() => {
+      importSuccessMessage.value = '';
+      createdLists.forEach((list) => {
+        const target = lists.value.find((item) => item.id === list.id);
+        if (target) {
+          target.isNew = false;
+        }
+      });
+      importFeedbackTimeoutId = null;
+    }, 3000);
+  } catch (error) {
+    confirmError.value = 'Oops, something went wrong. Please try again.';
   } finally {
     isConfirmLoading.value = false;
   }
 };
 
 onMounted(async () => {
+  window.addEventListener('app:session-expired', handleSessionExpired);
   if (!authState.isAuthenticated) return;
   await loadLists();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('app:session-expired', handleSessionExpired);
+  if (importFeedbackTimeoutId) {
+    clearTimeout(importFeedbackTimeoutId);
+  }
 });
 
 watch(

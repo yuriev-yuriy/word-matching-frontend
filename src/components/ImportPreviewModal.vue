@@ -38,6 +38,14 @@
 
           <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ sheet.original_sheet_name }}</p>
           <p class="mb-3 text-xs text-zinc-500 dark:text-zinc-400">Rows: {{ sheet.count }}</p>
+          <div
+            v-if="sheet.ignored_rows > 0"
+            class="mb-3 rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-600/50 dark:bg-amber-900/20 dark:text-amber-100"
+          >
+            <p>Sheet contains {{ sheet.total_rows }} words.</p>
+            <p>Only the first {{ sheet.processed_rows }} will be imported.</p>
+            <p>Last {{ sheet.ignored_rows }} rows will be ignored.</p>
+          </div>
 
           <label class="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">List name</label>
           <input
@@ -92,7 +100,7 @@
             :disabled="isConfirmDisabled"
             @click="submitConfirm"
           >
-            {{ loading ? 'Saving...' : 'Add for learning' }}
+            {{ loading ? 'Importing...' : 'Confirm import' }}
           </button>
         </div>
       </div>

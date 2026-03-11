@@ -122,8 +122,9 @@
 import ThemeToggle from "./components/ThemeToggle.vue";
 import SidebarMenu from "./components/SidebarMenu.vue";
 import UiButton from "./components/ui/Button.vue";
-import { authState } from "./state/auth";
+import { authState, clearAuthState } from "./state/auth";
 import api from "./services/api";
+import router from "./router";
 
 export default {
   name: "App",
@@ -163,10 +164,16 @@ export default {
       } catch (e) {
         // optional: log silently
       }
-      authState.user = null;
-      authState.isAuthenticated = false;
+      clearAuthState();
       this.isUserMenuOpen = false;
       this.$router.push("/");
+    },
+    handleSessionExpired() {
+      this.isUserMenuOpen = false;
+      this.isSidebarOpen = false;
+    },
+    handleRedirectLogin() {
+      router.push("/login");
     },
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
@@ -184,9 +191,13 @@ export default {
   },
   mounted() {
     document.addEventListener("click", this.handleDocumentClick);
+    window.addEventListener("app:session-expired", this.handleSessionExpired);
+    window.addEventListener("app:redirect-login", this.handleRedirectLogin);
   },
   beforeUnmount() {
     document.removeEventListener("click", this.handleDocumentClick);
+    window.removeEventListener("app:session-expired", this.handleSessionExpired);
+    window.removeEventListener("app:redirect-login", this.handleRedirectLogin);
   },
 };
 </script>

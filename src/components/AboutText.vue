@@ -1,6 +1,5 @@
 <template>
-    <WordListManager v-if="authState.isAuthenticated" :importRequest="importRequest" />
-    <div v-else class="flex flex-col text-center px-4 py-6">
+    <div class="flex flex-col text-center px-4 py-6">
       <header>
         <h1 class="text-2xl font-bold text-gray-800 dark:text-white">
           Welcome to the Word Matching App
@@ -60,19 +59,11 @@
       </main>
   
       <footer class="mt-6 text-gray-600 dark:text-gray-400">
-        <p>&copy; 2025 Your App Team. All rights reserved.</p>
+        <p>&copy; {{ currentYear }} Your App Team. All rights reserved.</p>
       </footer>
     </div>
   </template>
   
   <script setup>
-  import WordListManager from './WordListManager.vue';
-  import { authState } from '../state/auth';
-
-  defineProps({
-    importRequest: {
-      type: Object,
-      default: null,
-    },
-  });
+  const currentYear = new Date().getFullYear();
   </script>
