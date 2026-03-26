@@ -22,17 +22,17 @@
         {{ importSuccessMessage }}
       </p>
 
-      <div v-if="isLoadingLists" class="text-sm text-zinc-500 dark:text-zinc-400">
+      <div v-if="wordListsState.loading" class="text-sm text-zinc-500 dark:text-zinc-400">
         Loading word lists...
       </div>
 
-      <div v-else-if="lists.length === 0" class="text-sm text-zinc-500 dark:text-zinc-400">
+      <div v-else-if="wordListsState.lists.length === 0" class="text-sm text-zinc-500 dark:text-zinc-400">
         No word lists yet.
       </div>
 
       <ul v-else class="space-y-2">
         <li
-          v-for="list in lists"
+          v-for="list in wordListsState.lists"
           :key="list.id"
           :class="[
             'flex items-center justify-between rounded-lg border px-3 py-2 transition-colors duration-700',
@@ -44,7 +44,7 @@
           <button
             type="button"
             class="truncate text-left text-sm font-medium text-zinc-800 hover:text-indigo-600 dark:text-zinc-100 dark:hover:text-indigo-400"
-            @click="openEditListModal(list)"
+            @click="startTrainingFromList(list)"
           >
             {{ list.name }}
           </button>
@@ -76,7 +76,7 @@
     :open="isPreviewModalOpen"
     :file-token="previewData?.file_token || ''"
     :sheets="previewData?.sheets || []"
-    :existing-lists="lists"
+    :existing-lists="wordListsState.lists"
     :loading="isConfirmLoading"
     :error-message="confirmError"
     @close="closePreviewModal"
@@ -85,7 +85,7 @@
 
   <AddWordModal
     :open="isAddWordModalOpen"
-    :lists="lists"
+    :lists="wordListsState.lists"
     @close="closeAddWordModal"
     @saved="handleWordSaved"
   />
@@ -137,6 +137,15 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import api from '../services/api';
 import { authState } from '../state/auth';
+import {
+  addImportedLists,
+  addWordList,
+  clearNewFlags,
+  ensureWordListsLoaded,
+  removeWordList,
+  renameWordList,
+  wordListsState,
+} from '../state/wordLists';
 import AddWordModal from './AddWordModal.vue';
 import EditListModal from './EditListModal.vue';
 import ImportPreviewModal from './ImportPreviewModal.vue';
@@ -147,9 +156,8 @@ const props = defineProps({
     default: null,
   },
 });
+const emit = defineEmits(['start-training']);
 
-const lists = ref([]);
-const isLoadingLists = ref(true);
 const previewError = ref('');
 const confirmError = ref('');
 const importSuccessMessage = ref('');
@@ -163,16 +171,6 @@ const isDeleteListModalOpen = ref(false);
 const listPendingDeletion = ref(null);
 const isDeletingList = ref(false);
 let importFeedbackTimeoutId = null;
-
-const loadLists = async () => {
-  isLoadingLists.value = true;
-  try {
-    const response = await api.get('/api/word-lists');
-    lists.value = response.data;
-  } finally {
-    isLoadingLists.value = false;
-  }
-};
 
 const askDeleteList = (list) => {
   listPendingDeletion.value = list ? { id: list.id, name: list.name } : null;
@@ -192,10 +190,7 @@ const confirmDeleteList = async () => {
   isDeletingList.value = true;
   try {
     await api.delete(`/api/word-lists/${id}`);
-    const index = lists.value.findIndex((item) => item.id === id);
-    if (index !== -1) {
-      lists.value.splice(index, 1);
-    }
+    removeWordList(id);
     if (activeList.value?.id === id) {
       closeEditListModal();
     }
@@ -263,6 +258,11 @@ const openEditListModal = (list) => {
   isEditListModalOpen.value = true;
 };
 
+const startTrainingFromList = (list) => {
+  if (!list?.id) return;
+  emit('start-training', list.id);
+};
+
 const closeEditListModal = () => {
   isEditListModalOpen.value = false;
   activeList.value = null;
@@ -276,23 +276,20 @@ const handleSessionExpired = () => {
 };
 
 const handleListRenamed = ({ id, name }) => {
-  const index = lists.value.findIndex((item) => item.id === id);
-  if (index !== -1) {
-    lists.value[index] = {
-      ...lists.value[index],
-      name,
-    };
-  }
+  renameWordList(id, name);
 
   if (activeList.value?.id === id) {
     activeList.value = { ...activeList.value, name };
   }
 };
 
-const handleWordSaved = async ({ createdNewList }) => {
-  if (createdNewList) {
-    await loadLists();
-  }
+const handleWordSaved = ({ createdList }) => {
+  if (!createdList?.id) return;
+  addWordList({
+    id: createdList.id,
+    name: createdList.name,
+    words_count: createdList.words_count ?? 1,
+  });
 };
 
 const confirmImport = async (payload) => {
@@ -303,18 +300,7 @@ const confirmImport = async (payload) => {
   try {
     const response = await api.post('/api/word-lists/import/confirm', payload);
     const createdLists = Array.isArray(response.data?.created_lists) ? response.data.created_lists : [];
-
-    createdLists.forEach((list) => {
-      const exists = lists.value.some((item) => item.id === list.id);
-      if (exists) return;
-
-      lists.value.push({
-        id: list.id,
-        name: list.name,
-        words_count: list.words_created,
-        isNew: true,
-      });
-    });
+    const addedIds = addImportedLists(createdLists);
 
     isPreviewModalOpen.value = false;
     previewData.value = null;
@@ -332,12 +318,7 @@ const confirmImport = async (payload) => {
     }
     importFeedbackTimeoutId = setTimeout(() => {
       importSuccessMessage.value = '';
-      createdLists.forEach((list) => {
-        const target = lists.value.find((item) => item.id === list.id);
-        if (target) {
-          target.isNew = false;
-        }
-      });
+      clearNewFlags(addedIds);
       importFeedbackTimeoutId = null;
     }, 3000);
   } catch (error) {
@@ -350,7 +331,7 @@ const confirmImport = async (payload) => {
 onMounted(async () => {
   window.addEventListener('app:session-expired', handleSessionExpired);
   if (!authState.isAuthenticated) return;
-  await loadLists();
+  await ensureWordListsLoaded();
 });
 
 onBeforeUnmount(() => {

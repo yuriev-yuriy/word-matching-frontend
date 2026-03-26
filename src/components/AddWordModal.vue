@@ -277,6 +277,13 @@ const submit = async () => {
     emit('saved', {
       createdNewList: creatingNewList,
       wordListId: createdWordListId,
+      createdList: creatingNewList && createdWordListId
+        ? {
+            id: createdWordListId,
+            name: form.newListName.trim(),
+            words_count: 1,
+          }
+        : null,
     });
     emit('close');
   } catch (error) {

@@ -23,7 +23,7 @@
         </button>
       </div>
       <template v-if="isLoggedIn">
-        <WordListManager />
+        <WordListManager @start-training="handleStartTraining" />
       </template>
       <template v-else>
         <div class="p-4 space-y-6 text-gray-700 dark:text-dark-text">
@@ -120,6 +120,10 @@
     },
     methods: {
       toggleSidebar() {
+        this.$emit("close");
+      },
+      handleStartTraining(listId) {
+        this.$emit("start-training", listId);
         this.$emit("close");
       },
     },

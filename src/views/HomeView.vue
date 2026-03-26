@@ -12,8 +12,26 @@
         />
       </UiCard>
 
-      <UiCard v-if="words.length">
+      <UiCard v-if="isTrainingLoading || trainingMessage || words.length">
+        <div
+          v-if="isTrainingLoading"
+          class="flex min-h-[280px] items-center justify-center"
+        >
+          <div class="flex items-center gap-3 text-zinc-600 dark:text-zinc-300">
+            <span class="h-7 w-7 animate-spin rounded-full border-2 border-zinc-300 border-t-indigo-600 dark:border-zinc-700 dark:border-t-indigo-400" />
+            <span class="text-lg font-medium">Loading words...</span>
+          </div>
+        </div>
+        <div
+          v-else-if="trainingMessage"
+          class="flex min-h-[280px] items-center justify-center text-center"
+        >
+          <p class="text-base text-zinc-600 dark:text-zinc-300">
+            {{ trainingMessage }}
+          </p>
+        </div>
         <WordMatching
+          v-else
           :words="words"
           :fileName="fileName"
           :fileId="fileId"
@@ -36,7 +54,10 @@
         <AboutText />
       </UiCard>
       <UiCard v-else>
-        <WordListManager :importRequest="importRequest" />
+        <WordListManager
+          :importRequest="importRequest"
+          @start-training="handleStartTraining"
+        />
       </UiCard>
     </aside>
   </div>
@@ -48,6 +69,7 @@ import WordMatching from "../components/WordMatching.vue";
 import AboutText from "../components/AboutText.vue";
 import WordListManager from "../components/WordListManager.vue";
 import UiCard from "../components/ui/Card.vue";
+import api from "../services/api";
 import { authState } from "../state/auth";
 
 export default {
@@ -69,10 +91,13 @@ export default {
       sheetId: "",
       fileType: "",
       csvDelimiter: ",",
+      isTrainingLoading: false,
+      trainingMessage: "",
       theme: "light",
       isDesktopViewport: false,
       isSampleList: true,
       activeDemoSheetIndex: 0,
+      currentTrainingListId: null,
       sampleSheets: [
         {
           name: "Sample",
@@ -116,6 +141,8 @@ export default {
       };
     },
     handleFileProcessed({ words, fileName, fileId, sheetId, fileType, csvDelimiter }) {
+      this.trainingMessage = "";
+      this.isTrainingLoading = false;
       this.words = words;
       this.fileName = fileName;
       this.fileId = fileId || "";
@@ -128,6 +155,8 @@ export default {
       this.activeDemoSheetIndex = index;
       const sheet = this.sampleSheets[index];
       if (!sheet) return;
+      this.trainingMessage = "";
+      this.isTrainingLoading = false;
       this.words = sheet.rows;
       this.fileName = sheet.name;
       this.isSampleList = true;
@@ -135,6 +164,51 @@ export default {
       this.sheetId = "";
       this.fileType = "";
       this.csvDelimiter = ",";
+    },
+    async handleStartTraining(listId) {
+      this.currentTrainingListId = listId;
+      this.trainingMessage = "";
+      this.isTrainingLoading = true;
+
+      try {
+        const response = await api.get(`/api/word-lists/${listId}/words`);
+
+        if (this.currentTrainingListId !== listId) {
+          return;
+        }
+
+        const mappedWords = Array.isArray(response.data)
+          ? response.data.map((item) => ({
+              word: item.word,
+              match: item.translation,
+              rule: item.hint || "",
+            }))
+          : [];
+
+        if (mappedWords.length === 0) {
+          this.words = [];
+          this.trainingMessage = "This list has no words yet.";
+          return;
+        }
+
+        this.words = mappedWords;
+        this.trainingMessage = "";
+        this.fileName = `Word List ${listId}`;
+        this.fileId = `word-list:${listId}`;
+        this.sheetId = "words";
+        this.fileType = "";
+        this.csvDelimiter = ",";
+        this.isSampleList = false;
+      } catch (error) {
+        console.error("Failed to load list words", error);
+      } finally {
+        this.isTrainingLoading = false;
+      }
+    },
+    handleGlobalStartTraining(event) {
+      const listId = event?.detail?.listId;
+      if (!listId) return;
+      this.handleStartTraining(listId);
     },
     syncViewport() {
       if (typeof window === "undefined") return;
@@ -148,9 +222,11 @@ export default {
   },
   mounted() {
     window.addEventListener("resize", this.syncViewport);
+    window.addEventListener("app:start-training", this.handleGlobalStartTraining);
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.syncViewport);
+    window.removeEventListener("app:start-training", this.handleGlobalStartTraining);
   },
 };
 </script>

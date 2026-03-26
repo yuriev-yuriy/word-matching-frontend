@@ -99,6 +99,7 @@
       :files="files"
       :isLoggedIn="authState.isAuthenticated"
       @close="toggleSidebar"
+      @start-training="handleSidebarStartTraining"
       @fileLoaded="handleFileLoaded"
     />
 
@@ -174,6 +175,10 @@ export default {
     },
     handleRedirectLogin() {
       router.push("/login");
+    },
+    handleSidebarStartTraining(listId) {
+      window.dispatchEvent(new CustomEvent("app:start-training", { detail: { listId } }));
+      this.isSidebarOpen = false;
     },
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
