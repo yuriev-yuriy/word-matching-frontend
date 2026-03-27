@@ -79,7 +79,7 @@ export default {
       try {
         // await api.get("/sanctum/csrf-cookie");
 
-        await api.post("/login", {
+        await api.post("/api/login", {
           email: this.email,
           password: this.password,
         });

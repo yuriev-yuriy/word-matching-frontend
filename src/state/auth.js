@@ -17,7 +17,7 @@ export async function checkAuth() {
   authState.loading = true;
 
   try {
-    const response = await api.get('/me', { skipAuthRedirect: true });
+    const response = await api.get('/api/me', { skipAuthRedirect: true });
     authState.user = response.data;
     authState.isAuthenticated = true;
   } catch (error) {

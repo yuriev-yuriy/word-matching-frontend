@@ -245,7 +245,7 @@ const clearWordErrors = () => {
 
 const redirectIfUnauthorized = (error) => {
   if (error?.response?.status !== 401) return false;
-  router.push('/login');
+  router.push('/api/login');
   return true;
 };
 
