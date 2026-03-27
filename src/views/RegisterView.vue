@@ -77,7 +77,6 @@
 
 <script>
 import api from "../services/api";
-import { checkAuth } from "../state/auth";
 
 export default {
   name: "RegisterView",
@@ -99,7 +98,7 @@ export default {
       this.validationErrors = {};
 
       try {
-        // await api.get("/sanctum/csrf-cookie");
+        await api.get("/sanctum/csrf-cookie");
 
         await api.post("/api/register", {
           name: this.name,
@@ -108,8 +107,10 @@ export default {
           password_confirmation: this.password_confirmation,
         });
 
-        await checkAuth();
-        this.$router.push("/");
+        this.$router.push({
+          path: "/login",
+          query: { verify: "1" },
+        });
       } catch (error) {
         const status = error?.response?.status;
 

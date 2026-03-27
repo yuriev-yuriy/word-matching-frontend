@@ -2,8 +2,12 @@
   <div class="mx-auto w-full max-w-md rounded-2xl border border-zinc-200/70 bg-white/80 p-6 shadow-sm dark:border-zinc-800/70 dark:bg-zinc-900/60">
     <h2 class="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Login</h2>
 
-    <p v-if="generalError" class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-300">
-      {{ generalError }}
+    <p v-if="infoMessage" class="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:border-blue-900/70 dark:bg-blue-950/30 dark:text-blue-300">
+      {{ infoMessage }}
+    </p>
+
+    <p v-if="errorMessage" class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-300">
+      {{ errorMessage }}
     </p>
 
     <form class="mt-5 space-y-4" @submit.prevent="submitLogin">
@@ -66,18 +70,26 @@ export default {
       email: "",
       password: "",
       submitting: false,
-      generalError: "",
+      infoMessage: "",
+      errorMessage: "",
       validationErrors: {},
     };
   },
+  mounted() {
+    if (this.$route.query.verify === "1") {
+      this.infoMessage = "Please check your email and verify your account.";
+      this.$router.replace({ path: "/login" });
+    }
+  },
   methods: {
     async submitLogin() {
+      this.infoMessage = "";
       this.submitting = true;
-      this.generalError = "";
+      this.errorMessage = "";
       this.validationErrors = {};
 
       try {
-        // await api.get("/sanctum/csrf-cookie");
+        await api.get("/sanctum/csrf-cookie");
 
         await api.post("/api/login", {
           email: this.email,
@@ -95,8 +107,10 @@ export default {
             email: errors.email ? errors.email[0] : "",
             password: errors.password ? errors.password[0] : "",
           };
+        } else if (status === 403) {
+          this.errorMessage = error?.response?.data?.message || "Please verify your email before logging in.";
         } else if (status === 401) {
-          this.generalError = "Invalid credentials.";
+          this.errorMessage = "Invalid credentials.";
         }
       } finally {
         this.submitting = false;
