@@ -12,6 +12,35 @@
         />
       </UiCard>
 
+      <UiCard v-if="showDueSummaryBlock">
+        <div class="space-y-3">
+          <p v-if="dueCount > 0" class="text-base text-zinc-700 dark:text-zinc-200">
+            You have {{ dueCount }} words to review today
+          </p>
+          <p v-else class="text-base text-zinc-700 dark:text-zinc-200">
+            No words to review today
+          </p>
+
+          <div v-if="dueCount > 0" class="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+              @click="startDueReview"
+            >
+              Repeat words
+            </button>
+            <select
+              v-model.number="selectedLimit"
+              class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            >
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+            </select>
+          </div>
+        </div>
+      </UiCard>
+
       <UiCard v-if="isTrainingLoading || trainingMessage || words.length">
         <div
           v-if="isTrainingLoading"
@@ -96,6 +125,8 @@ export default {
       theme: "light",
       isDesktopViewport: false,
       isSampleList: true,
+      dueCount: 0,
+      selectedLimit: 20,
       activeDemoSheetIndex: 0,
       currentTrainingListId: null,
       sampleSheets: [
@@ -133,7 +164,79 @@ export default {
       ],
     };
   },
+  computed: {
+    hasActiveReviewSession() {
+      return this.isTrainingLoading || this.trainingMessage || (this.words.length > 0);
+    },
+    showDueSummaryBlock() {
+      return this.authState.isAuthenticated && !this.hasActiveReviewSession;
+    },
+  },
+  watch: {
+    "authState.isAuthenticated"(isAuthenticated) {
+      if (isAuthenticated) {
+        this.fetchDueCount();
+      } else {
+        this.dueCount = 0;
+      }
+    },
+  },
   methods: {
+    async fetchDueCount() {
+
+      try {
+        const response = await api.get("/api/training/due-count");
+        this.dueCount = Number(response?.data?.due_count) || 0;
+      } catch (_) {
+        this.dueCount = 0;
+      }
+    },
+    async startDueReview() {
+      if (this.isTrainingLoading) return;
+      this.currentTrainingListId = null;
+      this.trainingMessage = "";
+      this.isTrainingLoading = true;
+
+      try {
+        const response = await api.get("/api/training/due", {
+          params: {
+            limit: this.selectedLimit,
+          },
+        });
+
+        const wordsArray = Array.isArray(response.data?.data)
+          ? response.data.data
+          : Array.isArray(response.data)
+          ? response.data
+          : [];
+
+        const mappedWords = wordsArray.map((item) => ({
+          word: item.word,
+          match: item.translation,
+          rule: item.hint || "",
+        }));
+
+        if (mappedWords.length === 0) {
+          this.words = [];
+          this.trainingMessage = "No words to review today";
+          return;
+        }
+
+        this.words = mappedWords;
+        this.trainingMessage = "";
+        this.fileName = "Due Review";
+        this.fileId = "due-review";
+        this.sheetId = "due";
+        this.fileType = "";
+        this.csvDelimiter = ",";
+        this.isSampleList = false;
+      } catch (error) {
+        console.error("Failed to load due words", error);
+        this.trainingMessage = "Failed to load review words. Please try again.";
+      } finally {
+        this.isTrainingLoading = false;
+      }
+    },
     handleImportFileSelected(file) {
       this.importRequest = {
         file,
@@ -223,6 +326,9 @@ export default {
   mounted() {
     window.addEventListener("resize", this.syncViewport);
     window.addEventListener("app:start-training", this.handleGlobalStartTraining);
+    if (this.authState.isAuthenticated) {
+      this.fetchDueCount();
+    }
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.syncViewport);

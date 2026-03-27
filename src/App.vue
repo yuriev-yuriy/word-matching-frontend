@@ -124,6 +124,7 @@ import ThemeToggle from "./components/ThemeToggle.vue";
 import SidebarMenu from "./components/SidebarMenu.vue";
 import UiButton from "./components/ui/Button.vue";
 import { authState, clearAuthState } from "./state/auth";
+import { clearWordLists } from "./state/wordLists";
 import api from "./services/api";
 import router from "./router";
 
@@ -162,6 +163,7 @@ export default {
     async logout() {
       try {
         await api.post("/api/logout");
+        clearAuthState();
       } catch (e) {
         // optional: log silently
       }

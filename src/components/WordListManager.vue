@@ -306,7 +306,8 @@ const confirmImport = async (payload) => {
     previewData.value = null;
     if (createdLists.length === 1) {
       const list = createdLists[0];
-      importSuccessMessage.value = `${list.words_created} words imported into '${list.name}'.`;
+      importSuccessMessage.value = `${list.words_created} words imported into '${list.name}'. Starting review...`;
+      emit('start-training', list.id);
     } else if (createdLists.length > 1) {
       importSuccessMessage.value = `Import successful: ${createdLists.length} lists created.`;
     } else {

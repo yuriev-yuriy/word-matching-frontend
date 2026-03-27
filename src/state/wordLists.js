@@ -27,6 +27,13 @@ export async function ensureWordListsLoaded() {
   await wordListsState.loadPromise;
 }
 
+export function clearWordLists() {
+  wordListsState.lists = [];
+  wordListsState.loading = false;
+  wordListsState.loaded = false;
+  wordListsState.loadPromise = null;
+}
+
 export function addWordList(list) {
   if (!list?.id) return;
   if (wordListsState.lists.some((item) => item.id === list.id)) return;
@@ -84,4 +91,3 @@ export function clearNewFlags(ids) {
     }
   });
 }
-
