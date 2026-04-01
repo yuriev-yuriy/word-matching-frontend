@@ -28,6 +28,12 @@
           </button>
         </div>
       </div>
+      <p
+        v-if="answerError"
+        class="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-300"
+      >
+        {{ answerError }}
+      </p>
       <TransitionGroup
         name="card"
         tag="div"
@@ -154,7 +160,7 @@
       </button>
       <!-- Download Errors Button -->
       <button
-        v-if="showDownload"
+        v-if="showDownload && !authState.isAuthenticated"
         class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
         @click.stop="downloadErrors"
       >
@@ -241,6 +247,8 @@
 import ExcelJS from "exceljs";
 import { rule } from "postcss";
 import { nextTick } from "vue";
+import api from "../services/api";
+import { authState } from "../state/auth";
 
 export default {
   name: "WordMatching",
@@ -284,6 +292,7 @@ export default {
   },
   data() {
     return {
+      authState,
       localWords: [],
       shuffledMatches: [],
       displayMode: "standard",
@@ -300,6 +309,10 @@ export default {
       lastFocusedElement: null,
       tooltipPlacement: {},
       uidCounter: 0,
+      answerError: "",
+      answersBuffer: [],
+      batchSize: 5,
+      isFlushing: false,
     };
   },
   computed: {
@@ -423,6 +436,16 @@ export default {
         this.restoreProgress();
       },
     },
+    isGameFinished(isFinished) {
+      try {
+        localStorage.setItem("training_session", JSON.stringify({
+          listId: this.getSessionListId(),
+          isFinished: Boolean(isFinished),
+        }));
+      } catch {
+        // Ignore storage errors.
+      }
+    },
     sheetId() {
       this.restoreProgress();
     },
@@ -488,6 +511,7 @@ export default {
     },
     selectWord(index, column) {
       if (!this.activeModeCapabilities.canMatch) return;
+      this.answerError = "";
       if (column === "left") {
         this.selected.left = this.selected.left === index ? null : index;
       } else if (column === "right") {
@@ -497,23 +521,69 @@ export default {
       if (this.selected.left !== null && this.selected.right !== null) {
         const left = this.localWords[this.selected.left];
         const right = this.shuffledMatches[this.selected.right];
+        const isCorrect = left.match === right.match;
 
-        // Value-based matching: correct when values match, regardless of original row position.
-        // Multiple words can share the same correct match (e.g. gender/category); cross-row picks are valid.
-        if (left.match === right.match) {
-          left.matched = true;
-          right.matched = true;
-          left.selectedMatch = right.match;
-        } else {
-          left.incorrect = true;
-          left.selectedMatch = right.match;
-          this.incorrectPairs.push({ word: left.word, correct: left.match, rule: left.rule || "" });
+        const applyAnswerLocally = () => {
+          if (isCorrect) {
+            left.matched = true;
+            right.matched = true;
+            left.selectedMatch = right.match;
+          } else {
+            left.incorrect = true;
+            left.selectedMatch = right.match;
+            this.incorrectPairs.push({ word: left.word, correct: left.match, rule: left.rule || "" });
+          }
+
+          this.saveProgress();
+        };
+
+        applyAnswerLocally();
+
+        if (authState.isAuthenticated) {
+          if (left.id) {
+            this.answersBuffer.push({
+              word_id: left.id,
+              correct: isCorrect,
+            });
+
+            if (this.answersBuffer.length >= this.batchSize) {
+              this.flushAnswers();
+            } else if (this.localWords.every((w) => w.matched || w.incorrect)) {
+              this.flushAnswers();
+            }
+          } else {
+            console.error("Missing word id for batched answer submission");
+          }
         }
+
+        // if (this.localWords.every((w) => w.matched || w.incorrect)) {
+        //   this.flushAnswers();
+        // }
 
         this.selected.left = null;
         this.selected.right = null;
-        this.saveProgress();
       }
+    },
+    flushAnswers() {
+      if (this.isFlushing || !this.answersBuffer.length) return;
+
+      this.isFlushing = true;
+
+      const payload = this.answersBuffer.splice(0);
+
+      api.post("/api/training/answer", {
+        answers: payload,
+      })
+      .catch((e) => {
+        console.error("Batch failed", e);
+      })
+      .finally(() => {
+        this.isFlushing = false;
+
+        if (this.answersBuffer.length) {
+          this.flushAnswers();
+        }
+      });
     },
     openRuleModal(item, event) {
       this.lastFocusedElement = event?.currentTarget || null;
@@ -645,10 +715,21 @@ export default {
       this.selected = { left: null, right: null };
       this.incorrectPairs = [];
       this.revealedAnswers = {};
+      this.answerError = "";
       this.uidCounter = 0;
 
       if (Array.isArray(newWords) && newWords.length > 0) {
-        const baseLeftItems = newWords.map(({ word, match, rule }) => ({
+        try {
+          localStorage.setItem("training_session", JSON.stringify({
+            listId: this.getSessionListId(),
+            isFinished: false,
+          }));
+        } catch {
+          // Ignore storage errors.
+        }
+
+        const baseLeftItems = newWords.map(({ id, word, match, rule }) => ({
+          id,
           word: this.modeConfig.swapColumns ? match : word,
           match: this.modeConfig.swapColumns ? word : match,
           rule,
@@ -687,6 +768,30 @@ export default {
     },
     isAnswerRevealed(item) {
       return Boolean(this.revealedAnswers[item.uid]);
+    },
+    getSessionListId() {
+      if (typeof this.fileId === "string") {
+        if (this.fileId === "due-review") return "due";
+        const match = this.fileId.match(/^word-list:(\d+)$/);
+        if (match) return Number(match[1]);
+        if (this.fileId.trim() !== "") {
+          return `guest:${this.hashSessionSource(this.fileId)}`;
+        }
+      }
+
+      if (this.isSampleList) return "sample";
+      return `guest:${Date.now()}`;
+    },
+    hashSessionSource(value) {
+      const input = String(value || "");
+      let hash = 0;
+
+      for (let i = 0; i < input.length; i += 1) {
+        hash = ((hash << 5) - hash) + input.charCodeAt(i);
+        hash |= 0;
+      }
+
+      return (hash >>> 0).toString(36);
     },
     getProgressKey() {
       if (!this.fileId || !this.sheetId) return "";

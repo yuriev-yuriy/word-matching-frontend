@@ -1,24 +1,46 @@
 <template>
   <div class="space-y-6">
-    <div class="space-y-2">
-      <h2 class="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">Upload your file</h2>
-      <p class="text-sm text-zinc-600 dark:text-zinc-300">
-        Drag and drop a CSV or XLSX file to start matching instantly.
-      </p>
-    </div>
+    <template v-if="!isCompact">
+      <div class="space-y-2">
+        <h2 class="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">Upload your file</h2>
+        <p class="text-sm text-zinc-600 dark:text-zinc-300">
+          Drag and drop a CSV or XLSX file to start matching instantly.
+        </p>
+      </div>
 
-    <div class="rounded-2xl border border-dashed border-zinc-200/80 bg-white/60 p-6 text-sm text-zinc-600 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-300">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="space-y-2">
-          <p class="text-base font-medium text-zinc-900 dark:text-zinc-100">Drop your file here</p>
-          <p>CSV and XLSX are supported. We import up to 10 sheets and 50 rows per sheet.</p>
-          <div class="flex flex-wrap gap-2">
-            <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">CSV</span>
-            <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">XLSX</span>
-            <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">Rule hints optional</span>
+      <div class="rounded-2xl border border-dashed border-zinc-200/80 bg-white/60 p-6 text-sm text-zinc-600 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-300">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="space-y-2">
+            <p class="text-base font-medium text-zinc-900 dark:text-zinc-100">Drop your file here</p>
+            <p>CSV and XLSX are supported. We import up to 10 sheets and 50 rows per sheet.</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">CSV</span>
+              <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">XLSX</span>
+              <span class="rounded-full border border-zinc-200/70 bg-white/80 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:text-zinc-300">Rule hints optional</span>
+            </div>
+          </div>
+          <div class="w-full max-w-xs">
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain,application/csv,application/vnd.oasis.opendocument.spreadsheet"
+              @change="handleFileUpload"
+              class="w-full cursor-pointer rounded-xl border border-zinc-200/80 bg-white/80 px-3 py-2 text-sm text-zinc-700 shadow-sm file:mr-3 file:rounded-lg file:border-0 file:bg-gradient-to-r file:from-indigo-600 file:to-violet-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:brightness-110 dark:border-zinc-700/70 dark:bg-zinc-900/60 dark:text-zinc-200"
+            />
           </div>
         </div>
-        <div class="w-full max-w-xs">
+      </div>
+    </template>
+
+    <div
+      v-else
+      class="rounded-2xl border border-zinc-200/80 bg-white/60 p-4 text-sm text-zinc-600 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-300"
+    >
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="space-y-1">
+          <p class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Upload your file</p>
+          <p class="text-xs text-zinc-600 dark:text-zinc-300">Drag and drop a CSV or XLSX file to start matching instantly.</p>
+        </div>
+        <div class="w-full sm:w-auto sm:min-w-[18rem]">
           <input
             type="file"
             accept=".xlsx,.xls,.csv,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain,application/csv,application/vnd.oasis.opendocument.spreadsheet"
@@ -131,6 +153,10 @@ export default {
       type: Boolean,
       default: false,
     },
+    hasWords: {
+      type: Boolean,
+      default: false,
+    },
     demoSheets: {
       type: Array,
       default: () => [],
@@ -198,6 +224,9 @@ export default {
     },
   },
   computed: {
+    isCompact() {
+      return this.hasWords;
+    },
     displaySheetNames() {
       if (this.workbookRef) return this.sheetNames;
       if (Array.isArray(this.demoSheets)) {
@@ -209,7 +238,7 @@ export default {
       return this.workbookRef ? this.activeSheetIndex : this.demoActiveIndex;
     },
     showSheetTabs() {
-      return this.displaySheetNames.length > 1;
+      return !this.isCompact && this.displaySheetNames.length > 1;
     },
   },
   methods: {

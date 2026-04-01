@@ -4,6 +4,7 @@
       <UiCard>
         <FileUpload
           :isAuthenticated="authState.isAuthenticated"
+          :hasWords="words.length > 0"
           :demoSheets="sampleSheets"
           :demoActiveIndex="activeDemoSheetIndex"
           @demoSheetSelected="handleDemoSheetSelected"
@@ -182,6 +183,44 @@ export default {
     },
   },
   methods: {
+    shouldResetTrainingSession(currentListId = null) {
+      try {
+        const raw = localStorage.getItem("training_session");
+        const session = raw ? JSON.parse(raw) : null;
+        if (!session) return true;
+        const sessionListId = session.listId;
+        const targetListId = currentListId;
+        if (sessionListId !== targetListId) {
+          return true;
+        }
+        return session.isFinished === true;
+      } catch {
+        return true;
+      }
+    },
+    resetTrainingSessionState() {
+      try {
+        localStorage.removeItem("training_answers");
+        localStorage.removeItem("training_progress");
+        localStorage.removeItem("training_session");
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith("wm_progress::")) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch {
+        // Ignore storage errors.
+      }
+
+      this.words = [];
+      this.trainingMessage = "";
+      this.currentTrainingListId = null;
+      this.fileName = "";
+      this.fileId = "";
+      this.sheetId = "";
+      this.fileType = "";
+      this.csvDelimiter = ",";
+    },
     async fetchDueCount() {
 
       try {
@@ -193,8 +232,9 @@ export default {
     },
     async startDueReview() {
       if (this.isTrainingLoading) return;
-      this.currentTrainingListId = null;
-      this.trainingMessage = "";
+      if (this.shouldResetTrainingSession("due")) {
+        this.resetTrainingSessionState();
+      }
       this.isTrainingLoading = true;
 
       try {
@@ -211,6 +251,7 @@ export default {
           : [];
 
         const mappedWords = wordsArray.map((item) => ({
+          id: item.id,
           word: item.word,
           match: item.translation,
           rule: item.hint || "",
@@ -222,14 +263,14 @@ export default {
           return;
         }
 
-        this.words = mappedWords;
-        this.trainingMessage = "";
         this.fileName = "Due Review";
         this.fileId = "due-review";
         this.sheetId = "due";
         this.fileType = "";
         this.csvDelimiter = ",";
         this.isSampleList = false;
+        this.trainingMessage = "";
+        this.words = mappedWords;
       } catch (error) {
         console.error("Failed to load due words", error);
         this.trainingMessage = "Failed to load review words. Please try again.";
@@ -269,8 +310,10 @@ export default {
       this.csvDelimiter = ",";
     },
     async handleStartTraining(listId) {
+      if (this.shouldResetTrainingSession(listId)) {
+        this.resetTrainingSessionState();
+      }
       this.currentTrainingListId = listId;
-      this.trainingMessage = "";
       this.isTrainingLoading = true;
 
       try {
@@ -282,6 +325,7 @@ export default {
 
         const mappedWords = Array.isArray(response.data)
           ? response.data.map((item) => ({
+              id: item.id,
               word: item.word,
               match: item.translation,
               rule: item.hint || "",
@@ -294,14 +338,14 @@ export default {
           return;
         }
 
-        this.words = mappedWords;
-        this.trainingMessage = "";
         this.fileName = `Word List ${listId}`;
         this.fileId = `word-list:${listId}`;
         this.sheetId = "words";
         this.fileType = "";
         this.csvDelimiter = ",";
         this.isSampleList = false;
+        this.trainingMessage = "";
+        this.words = mappedWords;
       } catch (error) {
         console.error("Failed to load list words", error);
       } finally {
