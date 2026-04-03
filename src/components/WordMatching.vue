@@ -313,6 +313,8 @@ export default {
       answersBuffer: [],
       batchSize: 5,
       isFlushing: false,
+      finalSyncPending: false,
+      finalSyncSent: false,
     };
   },
   computed: {
@@ -540,6 +542,8 @@ export default {
         applyAnswerLocally();
 
         if (authState.isAuthenticated) {
+          const isCompleted = this.localWords.every((w) => w.matched || w.incorrect);
+
           if (left.id) {
             this.answersBuffer.push({
               word_id: left.id,
@@ -548,11 +552,15 @@ export default {
 
             if (this.answersBuffer.length >= this.batchSize) {
               this.flushAnswers();
-            } else if (this.localWords.every((w) => w.matched || w.incorrect)) {
+            } else if (isCompleted) {
               this.flushAnswers();
             }
           } else {
             console.error("Missing word id for batched answer submission");
+          }
+
+          if (isCompleted) {
+            this.finalizeCompletedSessionSync();
           }
         }
 
@@ -583,7 +591,25 @@ export default {
         if (this.answersBuffer.length) {
           this.flushAnswers();
         }
+
+        this.maybeDispatchFinalSync();
       });
+    },
+    finalizeCompletedSessionSync() {
+      if (!this.finalSyncPending && !this.finalSyncSent) {
+        this.finalSyncPending = true;
+      }
+
+      this.flushAnswers();
+      this.maybeDispatchFinalSync();
+    },
+    maybeDispatchFinalSync() {
+      if (!this.finalSyncPending || this.finalSyncSent) return;
+      if (this.isFlushing || this.answersBuffer.length) return;
+
+      this.finalSyncPending = false;
+      this.finalSyncSent = true;
+      window.dispatchEvent(new Event("app:training-sync-request"));
     },
     openRuleModal(item, event) {
       this.lastFocusedElement = event?.currentTarget || null;
@@ -717,6 +743,8 @@ export default {
       this.revealedAnswers = {};
       this.answerError = "";
       this.uidCounter = 0;
+      this.finalSyncPending = false;
+      this.finalSyncSent = false;
 
       if (Array.isArray(newWords) && newWords.length > 0) {
         try {

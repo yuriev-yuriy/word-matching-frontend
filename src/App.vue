@@ -44,7 +44,7 @@
               class="inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white/50 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-white/80 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-100 dark:hover:bg-zinc-900/70"
               @click="toggleUserMenu"
             >
-              <span class="max-w-32 truncate">{{ authState.user?.user.name }}</span>
+              <span v-if="authState.user" class="max-w-32 truncate">{{ authState.user?.user.name }}</span>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 20 20"
@@ -58,7 +58,7 @@
             </button>
 
             <div
-              v-if="isUserMenuOpen"
+              v-if="authState.user && isUserMenuOpen"
               class="absolute right-0 mt-2 w-64 rounded-xl border border-zinc-200/80 bg-white p-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
             >
               <p class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">

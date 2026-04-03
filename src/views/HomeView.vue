@@ -357,6 +357,10 @@ export default {
       if (!listId) return;
       this.handleStartTraining(listId);
     },
+    handleTrainingSyncRequest() {
+      if (!this.authState.isAuthenticated) return;
+      this.fetchDueCount();
+    },
     syncViewport() {
       if (typeof window === "undefined") return;
       this.isDesktopViewport = window.innerWidth >= 1024;
@@ -370,6 +374,7 @@ export default {
   mounted() {
     window.addEventListener("resize", this.syncViewport);
     window.addEventListener("app:start-training", this.handleGlobalStartTraining);
+    window.addEventListener("app:training-sync-request", this.handleTrainingSyncRequest);
     if (this.authState.isAuthenticated) {
       this.fetchDueCount();
     }
@@ -377,6 +382,7 @@ export default {
   beforeUnmount() {
     window.removeEventListener("resize", this.syncViewport);
     window.removeEventListener("app:start-training", this.handleGlobalStartTraining);
+    window.removeEventListener("app:training-sync-request", this.handleTrainingSyncRequest);
   },
 };
 </script>
