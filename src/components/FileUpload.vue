@@ -33,7 +33,7 @@
 
     <div
       v-else
-      class="rounded-2xl border border-zinc-200/80 bg-white/60 p-4 text-sm text-zinc-600 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-300"
+      :class="!this.isAuthenticated ? ' border-zinc-200/80 bg-white/60 p-4 text-sm text-zinc-600 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-300 rounded-2xl border' : 'p-0'"
     >
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="space-y-1">
@@ -225,7 +225,7 @@ export default {
   },
   computed: {
     isCompact() {
-      return this.hasWords;
+      return this.hasWords && this.isAuthenticated;
     },
     displaySheetNames() {
       if (this.workbookRef) return this.sheetNames;
