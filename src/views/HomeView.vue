@@ -230,6 +230,9 @@ export default {
         this.dueCount = 0;
       }
     },
+    async refreshDueCount() {
+      await this.fetchDueCount();
+    },
     async startDueReview() {
       if (this.isTrainingLoading) return;
       if (this.shouldResetTrainingSession("due")) {
@@ -359,7 +362,7 @@ export default {
     },
     handleTrainingSyncRequest() {
       if (!this.authState.isAuthenticated) return;
-      this.fetchDueCount();
+      this.refreshDueCount();
     },
     syncViewport() {
       if (typeof window === "undefined") return;

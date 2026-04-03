@@ -7,6 +7,18 @@
     @click="handleContainerClick"
   >
     <div v-if="localWords.length && shuffledMatches.length" class="w-full">
+      <div class="mb-4">
+        <div class="mb-1 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+          <span>{{ completedCount }} / {{ totalCount }} completed</span>
+          <span>{{ progressPercent }}%</span>
+        </div>
+        <div class="h-2 w-full overflow-hidden rounded bg-gray-200 dark:bg-gray-700">
+          <div
+            class="h-full bg-blue-500 transition-all duration-200"
+            :style="{ width: `${progressPercent}%` }"
+          />
+        </div>
+      </div>
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 class="text-lg font-semibold text-gray-700 dark:text-white">
           Words and Matches
@@ -58,7 +70,7 @@
                   ?
                 </button>
                 <span
-                  class="absolute px-2 py-1 text-xs rounded-md bg-gray-900 text-white shadow-sm opacity-0 translate-y-1 transition pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 dark:bg-gray-700"
+                  class="z-10 absolute px-2 py-1 text-xs rounded-md bg-gray-900 text-white shadow-sm opacity-0 translate-y-1 transition pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 dark:bg-gray-700"
                   :class="tooltipPlacementClass(`left-${entry.i}-rule`)"
                 >
                   Show correct answer / rule
@@ -79,7 +91,7 @@
                   +
                 </button>
                 <span
-                  class="absolute px-2 py-1 text-xs rounded-md bg-gray-900 text-white shadow-sm opacity-0 translate-y-1 transition pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 dark:bg-gray-700"
+                  class="z-10 absolute px-2 py-1 text-xs rounded-md bg-gray-900 text-white shadow-sm opacity-0 translate-y-1 transition pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 dark:bg-gray-700"
                   :class="tooltipPlacementClass(`left-${entry.i}-manual`)"
                 >
                   {{ entry.item.manuallyAdded ? 'Remove from errors file' : 'Add this word to errors file' }}
@@ -89,6 +101,7 @@
             <div
               class="w-full flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
               :class="[
+                getFeedbackClass(entry.item.uid),
                 entry.item.matched
                   ? 'bg-green-100 text-green-800 pointer-events-none'
                   : entry.item.incorrect
@@ -117,7 +130,8 @@
         >
           <div
             class="w-full flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
-            :class="[
+              :class="[
+              getFeedbackClass(entry.item.uid),
               activeModeCapabilities.canReveal && !isAnswerRevealed(entry.item)
                 ? 'bg-gray-100 text-gray-400'
                 : '',
@@ -147,6 +161,15 @@
     </div>
 
     <div class="mt-4 text-center pb-6">
+      <div
+        v-if="isGameFinished && activeModeCapabilities.completionType !== 'reveal'"
+        class="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-200"
+      >
+        <p class="font-semibold">Session complete</p>
+        <p>Correct: {{ correctCount }}</p>
+        <p>Incorrect: {{ incorrectCount }}</p>
+        <p>Accuracy: {{ successRate }}%</p>
+      </div>
       <p class="text-lg font-bold text-gray-700 dark:text-white mb-4">
         Your result: {{ successRate }}%
       </p>
@@ -315,6 +338,12 @@ export default {
       isFlushing: false,
       finalSyncPending: false,
       finalSyncSent: false,
+      feedbackState: {
+        leftUid: "",
+        rightUid: "",
+        type: "",
+      },
+      feedbackTimeoutId: null,
     };
   },
   computed: {
@@ -396,6 +425,22 @@ export default {
       const correctCount = this.localWords.filter((item) => item.matched).length;
       return Math.round((correctCount / this.localWords.length) * 100);
     },
+    totalCount() {
+      return this.localWords.length;
+    },
+    completedCount() {
+      return this.localWords.filter((item) => item.matched || item.incorrect).length;
+    },
+    progressPercent() {
+      if (this.totalCount === 0) return 0;
+      return Math.round((this.completedCount / this.totalCount) * 100);
+    },
+    correctCount() {
+      return this.localWords.filter((item) => item.matched).length;
+    },
+    incorrectCount() {
+      return this.localWords.filter((item) => item.incorrect).length;
+    },
     showDownload() {
       return this.isGameFinished && this.errorExportRows.length > 0;
     },
@@ -461,6 +506,7 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener("keydown", this.handleKeydown);
+    this.clearFeedbackState();
   },
   methods: {
     isImageUrl(value) {
@@ -540,6 +586,7 @@ export default {
         };
 
         applyAnswerLocally();
+        this.showMatchFeedback(left.uid, right.uid, isCorrect);
 
         if (authState.isAuthenticated) {
           const isCompleted = this.localWords.every((w) => w.matched || w.incorrect);
@@ -571,6 +618,41 @@ export default {
         this.selected.left = null;
         this.selected.right = null;
       }
+    },
+    showMatchFeedback(leftUid, rightUid, isCorrect) {
+      this.clearFeedbackState();
+      this.feedbackState = {
+        leftUid,
+        rightUid,
+        type: isCorrect ? "correct" : "incorrect",
+      };
+      this.feedbackTimeoutId = window.setTimeout(() => {
+        this.feedbackState = {
+          leftUid: "",
+          rightUid: "",
+          type: "",
+        };
+        this.feedbackTimeoutId = null;
+      }, 220);
+    },
+    clearFeedbackState() {
+      if (this.feedbackTimeoutId) {
+        window.clearTimeout(this.feedbackTimeoutId);
+        this.feedbackTimeoutId = null;
+      }
+      this.feedbackState = {
+        leftUid: "",
+        rightUid: "",
+        type: "",
+      };
+    },
+    getFeedbackClass(uid) {
+      if (!uid) return "";
+      const isTarget = uid === this.feedbackState.leftUid || uid === this.feedbackState.rightUid;
+      if (!isTarget) return "";
+      if (this.feedbackState.type === "correct") return "feedback-correct";
+      if (this.feedbackState.type === "incorrect") return "feedback-incorrect";
+      return "";
     },
     flushAnswers() {
       if (this.isFlushing || !this.answersBuffer.length) return;
@@ -736,6 +818,7 @@ export default {
     },
 
     resetState(newWords) {
+      this.clearFeedbackState();
       this.localWords = [];
       this.shuffledMatches = [];
       this.selected = { left: null, right: null };
@@ -956,6 +1039,16 @@ export default {
 .card-move {
   transition: transform 1000ms ease-in-out;
   will-change: transform;
+}
+
+.feedback-correct {
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.85);
+  transition: box-shadow 180ms ease;
+}
+
+.feedback-incorrect {
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.85);
+  transition: box-shadow 180ms ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
