@@ -13,7 +13,7 @@
         />
       </UiCard>
 
-      <UiCard v-if="showDueSummaryBlock">
+      <UiCard v-if="showTrainingEntryBlock">
         <div class="space-y-3">
           <p v-if="dueCount > 0" class="text-base text-zinc-700 dark:text-zinc-200">
             You have {{ dueCount }} words to review today
@@ -26,19 +26,23 @@
             <button
               type="button"
               class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
-              @click="startDueReview"
+              @click="startTrainingEntry"
             >
-              Repeat words
+              Start training
             </button>
             <select
+              v-if="dueCount > 10"
               v-model.number="selectedLimit"
               class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <option :value="10">10</option>
               <option :value="20">20</option>
-              <option :value="50">50</option>
+              <option :value="30">30</option>
             </select>
           </div>
+          <p v-if="entryMessage" class="text-sm text-zinc-600 dark:text-zinc-300">
+            {{ entryMessage }}
+          </p>
         </div>
       </UiCard>
 
@@ -72,6 +76,26 @@
           :isSampleList="isSampleList"
           :demoSheets="sampleSheets"
         />
+      </UiCard>
+
+      <UiCard v-if="showContinueTrainingBlock">
+        <div class="space-y-3">
+          <p v-if="dueCount > 0" class="text-base text-zinc-700 dark:text-zinc-200">
+            You have {{ dueCount }} words left to review today
+          </p>
+          <p v-else class="text-base text-zinc-700 dark:text-zinc-200">
+            You have no words left for today
+          </p>
+          <div v-if="dueCount > 0">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
+              @click="continueTraining"
+            >
+              Train
+            </button>
+          </div>
+        </div>
       </UiCard>
 
       <UiCard v-if="!authState.isAuthenticated && !isDesktopViewport">
@@ -126,8 +150,11 @@ export default {
       theme: "light",
       isDesktopViewport: false,
       isSampleList: true,
+      isTrainingStarted: false,
+      isSessionCompleted: false,
       dueCount: 0,
-      selectedLimit: 20,
+      selectedLimit: 10,
+      entryMessage: "",
       activeDemoSheetIndex: 0,
       currentTrainingListId: null,
       sampleSheets: [
@@ -169,16 +196,34 @@ export default {
     hasActiveReviewSession() {
       return this.isTrainingLoading || this.trainingMessage || (this.words.length > 0);
     },
-    showDueSummaryBlock() {
-      return this.authState.isAuthenticated && !this.hasActiveReviewSession;
+    showTrainingEntryBlock() {
+      return this.authState.isAuthenticated && !this.isTrainingStarted && !this.words.length;
+    },
+    showContinueTrainingBlock() {
+      return this.authState.isAuthenticated && this.isSessionCompleted;
     },
   },
   watch: {
     "authState.isAuthenticated"(isAuthenticated) {
       if (isAuthenticated) {
+        this.words = [];
+        this.fileName = "";
+        this.fileId = "";
+        this.sheetId = "";
+        this.fileType = "";
+        this.csvDelimiter = ",";
+        this.trainingMessage = "";
+        this.entryMessage = "";
+        this.isSampleList = false;
+        this.isTrainingStarted = false;
+        this.isSessionCompleted = false;
         this.fetchDueCount();
       } else {
         this.dueCount = 0;
+        this.entryMessage = "";
+        this.isTrainingStarted = false;
+        this.isSessionCompleted = false;
+        this.handleDemoSheetSelected(this.activeDemoSheetIndex);
       }
     },
   },
@@ -220,12 +265,14 @@ export default {
       this.sheetId = "";
       this.fileType = "";
       this.csvDelimiter = ",";
+      this.isTrainingStarted = false;
+      this.isSessionCompleted = false;
     },
     async fetchDueCount() {
 
       try {
         const response = await api.get("/api/training/due-count");
-        this.dueCount = Number(response?.data?.due_count) || 0;
+        this.dueCount = Number(response?.data?.count ?? response?.data?.due_count) || 0;
       } catch (_) {
         this.dueCount = 0;
       }
@@ -233,17 +280,29 @@ export default {
     async refreshDueCount() {
       await this.fetchDueCount();
     },
-    async startDueReview() {
+    startTrainingEntry() {
+      if (this.dueCount === 0) {
+        this.entryMessage = "You have no words to review. Upload or choose a list.";
+        return;
+      }
+
+      this.entryMessage = "";
+      this.isSessionCompleted = false;
+      const limit = this.dueCount <= 10 ? this.dueCount : this.selectedLimit;
+      this.startDueReview(limit);
+    },
+    async startDueReview(limit = null) {
       if (this.isTrainingLoading) return;
       if (this.shouldResetTrainingSession("due")) {
         this.resetTrainingSessionState();
       }
       this.isTrainingLoading = true;
+      const targetLimit = Number.isInteger(limit) && limit > 0 ? limit : this.selectedLimit;
 
       try {
         const response = await api.get("/api/training/due", {
           params: {
-            limit: this.selectedLimit,
+            limit: targetLimit,
           },
         });
 
@@ -263,6 +322,7 @@ export default {
         if (mappedWords.length === 0) {
           this.words = [];
           this.trainingMessage = "No words to review today";
+          this.isTrainingStarted = false;
           return;
         }
 
@@ -272,6 +332,8 @@ export default {
         this.fileType = "";
         this.csvDelimiter = ",";
         this.isSampleList = false;
+        this.isTrainingStarted = true;
+        this.isSessionCompleted = false;
         this.trainingMessage = "";
         this.words = mappedWords;
       } catch (error) {
@@ -290,6 +352,9 @@ export default {
     handleFileProcessed({ words, fileName, fileId, sheetId, fileType, csvDelimiter }) {
       this.trainingMessage = "";
       this.isTrainingLoading = false;
+      this.entryMessage = "";
+      this.isTrainingStarted = true;
+      this.isSessionCompleted = false;
       this.words = words;
       this.fileName = fileName;
       this.fileId = fileId || "";
@@ -304,6 +369,9 @@ export default {
       if (!sheet) return;
       this.trainingMessage = "";
       this.isTrainingLoading = false;
+      this.entryMessage = "";
+      this.isTrainingStarted = true;
+      this.isSessionCompleted = false;
       this.words = sheet.rows;
       this.fileName = sheet.name;
       this.isSampleList = true;
@@ -318,6 +386,8 @@ export default {
       }
       this.currentTrainingListId = listId;
       this.isTrainingLoading = true;
+      this.entryMessage = "";
+      this.isSessionCompleted = false;
 
       try {
         const response = await api.get(`/api/word-lists/${listId}/words`);
@@ -338,6 +408,7 @@ export default {
         if (mappedWords.length === 0) {
           this.words = [];
           this.trainingMessage = "This list has no words yet.";
+          this.isTrainingStarted = false;
           return;
         }
 
@@ -347,6 +418,8 @@ export default {
         this.fileType = "";
         this.csvDelimiter = ",";
         this.isSampleList = false;
+        this.isTrainingStarted = true;
+        this.isSessionCompleted = false;
         this.trainingMessage = "";
         this.words = mappedWords;
       } catch (error) {
@@ -364,20 +437,61 @@ export default {
       if (!this.authState.isAuthenticated) return;
       this.refreshDueCount();
     },
+    handleTrainingSessionCompleted() {
+      if (!this.authState.isAuthenticated) return;
+      this.isSessionCompleted = true;
+      this.isTrainingStarted = false;
+    },
+    handleTrainingSessionClosed() {
+      if (!this.authState.isAuthenticated) return;
+      this.words = [];
+      this.trainingMessage = "";
+      this.fileName = "";
+      this.fileId = "";
+      this.sheetId = "";
+      this.fileType = "";
+      this.csvDelimiter = ",";
+      this.isTrainingStarted = false;
+      this.isSessionCompleted = false;
+    },
+    continueTraining() {
+      if (this.dueCount <= 0) return;
+      this.isSessionCompleted = false;
+      this.isTrainingStarted = true;
+      const limit = this.dueCount <= 10 ? this.dueCount : this.selectedLimit;
+      this.startDueReview(limit);
+    },
     syncViewport() {
       if (typeof window === "undefined") return;
       this.isDesktopViewport = window.innerWidth >= 1024;
     },
   },
   created() {
-    this.words = this.sampleSheets[0]?.rows || [];
-    this.fileName = this.sampleSheets[0]?.name || "";
+    if (this.authState.isAuthenticated) {
+      this.words = [];
+      this.fileName = "";
+      this.fileId = "";
+      this.sheetId = "";
+      this.fileType = "";
+      this.csvDelimiter = ",";
+      this.isSampleList = false;
+      this.isTrainingStarted = false;
+      this.isSessionCompleted = false;
+    } else {
+      this.words = this.sampleSheets[0]?.rows || [];
+      this.fileName = this.sampleSheets[0]?.name || "";
+      this.isSampleList = true;
+      this.isTrainingStarted = true;
+      this.isSessionCompleted = false;
+    }
     this.syncViewport();
   },
   mounted() {
     window.addEventListener("resize", this.syncViewport);
     window.addEventListener("app:start-training", this.handleGlobalStartTraining);
     window.addEventListener("app:training-sync-request", this.handleTrainingSyncRequest);
+    window.addEventListener("app:training-session-completed", this.handleTrainingSessionCompleted);
+    window.addEventListener("app:training-session-closed", this.handleTrainingSessionClosed);
     if (this.authState.isAuthenticated) {
       this.fetchDueCount();
     }
@@ -386,6 +500,8 @@ export default {
     window.removeEventListener("resize", this.syncViewport);
     window.removeEventListener("app:start-training", this.handleGlobalStartTraining);
     window.removeEventListener("app:training-sync-request", this.handleTrainingSyncRequest);
+    window.removeEventListener("app:training-session-completed", this.handleTrainingSessionCompleted);
+    window.removeEventListener("app:training-session-closed", this.handleTrainingSessionClosed);
   },
 };
 </script>

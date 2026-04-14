@@ -225,7 +225,7 @@ export default {
   },
   computed: {
     isCompact() {
-      return this.hasWords && this.isAuthenticated;
+      return this.isAuthenticated;
     },
     displaySheetNames() {
       if (this.workbookRef) return this.sheetNames;

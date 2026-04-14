@@ -38,13 +38,31 @@
           >
             {{ mode.icon }}
           </button>
+          <button
+            v-if="authState.isAuthenticated && localWords.length > 0"
+            type="button"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:bg-gray-800"
+            aria-label="Close training session"
+            @click.stop="closeTrainingSession"
+          >
+            X
+          </button>
         </div>
       </div>
       <p
         v-if="answerError"
         class="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-300"
       >
-        {{ answerError }}
+        <span>{{ answerError }}</span>
+        <button
+          v-if="hasRetryableBatch"
+          type="button"
+          class="ml-3 rounded-md border border-red-300 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:bg-red-950/20 dark:text-red-200 dark:hover:bg-red-900/30"
+          :disabled="isFlushing"
+          @click.stop="retryFailedBatch"
+        >
+          Retry
+        </button>
       </p>
       <TransitionGroup
         name="card"
@@ -102,6 +120,9 @@
               class="w-full flex items-center justify-center p-4 border-4 border-gray-200 dark:border-gray-700 rounded-lg md:text-xl"
               :class="[
                 getFeedbackClass(entry.item.uid),
+                entry.item.syncFailed
+                  ? 'ring-2 ring-red-400 dark:ring-red-500'
+                  : '',
                 entry.item.matched
                   ? 'bg-green-100 text-green-800 pointer-events-none'
                   : entry.item.incorrect
@@ -338,6 +359,7 @@ export default {
       isFlushing: false,
       finalSyncPending: false,
       finalSyncSent: false,
+      failedBatch: [],
       feedbackState: {
         leftUid: "",
         rightUid: "",
@@ -441,6 +463,9 @@ export default {
     incorrectCount() {
       return this.localWords.filter((item) => item.incorrect).length;
     },
+    hasRetryableBatch() {
+      return this.failedBatch.length > 0;
+    },
     showDownload() {
       return this.isGameFinished && this.errorExportRows.length > 0;
     },
@@ -459,6 +484,7 @@ export default {
         .filter(({ item }) => {
           if (!item) return false;
           if (this.isGameFinished) return true;
+          if (item.syncFailed) return true;
           return !(item.matched && !item.incorrect);
         });
     },
@@ -491,6 +517,15 @@ export default {
         }));
       } catch {
         // Ignore storage errors.
+      }
+
+      if (
+        isFinished &&
+        this.authState.isAuthenticated &&
+        typeof this.fileId === "string" &&
+        this.fileId.startsWith("word-list:")
+      ) {
+        this.finalizeCompletedSessionSync();
       }
     },
     sheetId() {
@@ -559,7 +594,10 @@ export default {
     },
     selectWord(index, column) {
       if (!this.activeModeCapabilities.canMatch) return;
-      this.answerError = "";
+      if (this.failedBatch.length) return;
+      if (!this.hasRetryableBatch.length) {
+        this.answerError = "";
+      }
       if (column === "left") {
         this.selected.left = this.selected.left === index ? null : index;
       } else if (column === "right") {
@@ -572,6 +610,7 @@ export default {
         const isCorrect = left.match === right.match;
 
         const applyAnswerLocally = () => {
+          left.syncFailed = false;
           if (isCorrect) {
             left.matched = true;
             right.matched = true;
@@ -655,27 +694,75 @@ export default {
       return "";
     },
     flushAnswers() {
-      if (this.isFlushing || !this.answersBuffer.length) return;
+      if (this.isFlushing) return;
+
+      let payload = [];
+      let source = "buffer";
+
+      if (this.failedBatch.length) {
+        payload = [...this.failedBatch];
+        source = "failed";
+      } else if (this.answersBuffer.length) {
+        const takeCount = Math.min(this.batchSize, this.answersBuffer.length);
+        payload = this.answersBuffer.splice(0, takeCount);
+      }
+
+      if (!payload.length) return;
 
       this.isFlushing = true;
-
-      const payload = this.answersBuffer.splice(0);
 
       api.post("/api/training/answer", {
         answers: payload,
       })
+      .then(() => {
+        const sentIds = new Set(payload.map((entry) => entry.word_id));
+        this.localWords.forEach((item) => {
+          if (sentIds.has(item.id)) {
+            item.syncFailed = false;
+          }
+        });
+        if (source === "failed") {
+          this.failedBatch = [];
+          this.answerError = "";
+        }
+      })
       .catch((e) => {
+        const status = e?.response?.status;
+        if (status === 401) {
+          window.dispatchEvent(new Event("app:session-expired"));
+          window.dispatchEvent(new Event("app:redirect-login"));
+          return;
+        }
+        if (status === 419) {
+          this.answerError = "Session expired. Please refresh.";
+        }
         console.error("Batch failed", e);
+        const failedIds = new Set(payload.map((entry) => entry.word_id));
+        this.localWords.forEach((item) => {
+          if (failedIds.has(item.id)) {
+            item.syncFailed = true;
+          }
+        });
+        if (source === "buffer") {
+          this.failedBatch = payload;
+        }
+        if (status !== 419) {
+          this.answerError = "Failed to sync answers. Please retry.";
+        }
       })
       .finally(() => {
         this.isFlushing = false;
 
-        if (this.answersBuffer.length) {
+        if (!this.failedBatch.length && this.answersBuffer.length) {
           this.flushAnswers();
         }
 
         this.maybeDispatchFinalSync();
       });
+    },
+    retryFailedBatch() {
+      if (this.isFlushing || !this.failedBatch.length) return;
+      this.flushAnswers();
     },
     finalizeCompletedSessionSync() {
       if (!this.finalSyncPending && !this.finalSyncSent) {
@@ -687,10 +774,11 @@ export default {
     },
     maybeDispatchFinalSync() {
       if (!this.finalSyncPending || this.finalSyncSent) return;
-      if (this.isFlushing || this.answersBuffer.length) return;
+      if (this.isFlushing || this.answersBuffer.length || this.failedBatch.length) return;
 
       this.finalSyncPending = false;
       this.finalSyncSent = true;
+      window.dispatchEvent(new Event("app:training-session-completed"));
       window.dispatchEvent(new Event("app:training-sync-request"));
     },
     openRuleModal(item, event) {
@@ -735,6 +823,21 @@ export default {
     clearSelection() {
       this.selected.left = null;
       this.selected.right = null;
+    },
+    closeTrainingSession() {
+      this.clearProgress();
+      this.clearFeedbackState();
+      this.localWords = [];
+      this.shuffledMatches = [];
+      this.answersBuffer = [];
+      this.failedBatch = [];
+      this.selected = { left: null, right: null };
+      this.incorrectPairs = [];
+      this.revealedAnswers = {};
+      this.answerError = "";
+      this.finalSyncPending = false;
+      this.finalSyncSent = false;
+      window.dispatchEvent(new Event("app:training-session-closed"));
     },
     async downloadSampleFile() {
       const workbook = new ExcelJS.Workbook();
@@ -826,6 +929,8 @@ export default {
       this.revealedAnswers = {};
       this.answerError = "";
       this.uidCounter = 0;
+      this.answersBuffer = [];
+      this.failedBatch = [];
       this.finalSyncPending = false;
       this.finalSyncSent = false;
 
@@ -846,6 +951,7 @@ export default {
           rule,
           matched: false,
           incorrect: false,
+          syncFailed: false,
           selectedMatch: "",
           manuallyAdded: false,
           uid: `left-${this.uidCounter++}`,
