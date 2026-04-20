@@ -89,12 +89,12 @@ export default {
       this.validationErrors = {};
 
       try {
-        await api.get("/sanctum/csrf-cookie");
-
-        await api.post("/api/login", {
+        const response = await api.post("/api/login", {
           email: this.email,
           password: this.password,
         });
+
+        localStorage.setItem("token", response.data.token);
 
         await checkAuth();
         this.$router.push("/");

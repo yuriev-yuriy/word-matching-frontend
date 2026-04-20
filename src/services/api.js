@@ -3,9 +3,16 @@ import { clearAuthState } from '../state/auth';
 
 const api = axios.create({
   baseURL: '/',  // relative URL (important)
-  withCredentials: true,
-  xsrfCookieName: 'XSRF-TOKEN',
-  xsrfHeaderName: 'X-XSRF-TOKEN',
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 let isSessionRedirecting = false;
@@ -25,7 +32,7 @@ api.interceptors.response.use(
         window.dispatchEvent(new Event('app:redirect-login'));
       }
 
-      return new Promise(() => {});
+      return new Promise(() => { });
     }
 
     return Promise.reject(error);

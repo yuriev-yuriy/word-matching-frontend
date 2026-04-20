@@ -167,6 +167,7 @@ export default {
       } catch (e) {
         // optional: log silently
       }
+      localStorage.removeItem('token');
       clearAuthState();
       this.isUserMenuOpen = false;
       this.$router.push("/");

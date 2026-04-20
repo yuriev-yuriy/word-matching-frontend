@@ -11,4 +11,4 @@ const head = createHead();
 app.use(head); // Add the head manager to the app
 app.use(router);
 app.mount('#app');
-checkAuth().catch(() => {});
+// checkAuth().catch(() => {});
