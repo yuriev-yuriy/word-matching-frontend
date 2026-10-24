@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24.22.1
           cache: npm
 
       - name: Install dependencies
@@ -54,4 +54,4 @@ jobs:
 
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" "bash /var/www/clicktomemo/deploy_frontend.sh"
+          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" "PATH=/opt/node-v24.22.1/bin:\$PATH bash /var/www/clicktomemo/deploy_frontend.sh"
